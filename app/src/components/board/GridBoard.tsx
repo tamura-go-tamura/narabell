@@ -38,6 +38,15 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     isVisible: boolean
   } | null>(null)
   const [currentDragType, setCurrentDragType] = useState<CardType | null>(null)
+  const [viewportState, setViewportState] = useState({ x: 0, y: 0, scale: 1 })
+
+  // グリッドレイアウトの設定 - 右下方向のみ無限拡張
+  const cellSize = currentBoard?.gridConfig.rowHeight || 40
+  // ズームレベルに応じてカラム数を動的に調整
+  const baseColumns = 200
+  const gridLayoutCols = Math.max(baseColumns, Math.floor(baseColumns / viewportState.scale))
+  const baseWidth = gridLayoutCols * cellSize
+  const gridLayoutWidth = baseWidth
 
   // カスタムイベントでドラッグ状態を監視
   useEffect(() => {
@@ -59,7 +68,7 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     }
   }, [])
 
-  // react-grid-layout用のレイアウト変換
+  // react-grid-layout用のレイアウト変換（シンプル版）
   const convertToLayout = useCallback((cards: Card[]): Layout[] => {
     return cards.map(card => ({
       i: card.id,
@@ -74,7 +83,7 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     }))
   }, [])
 
-  // レイアウト変更ハンドラー
+  // レイアウト変更ハンドラー（シンプル版）
   const handleLayoutChange = useCallback((layout: Layout[]) => {
     if (!currentBoard) return
 
@@ -137,16 +146,16 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     })
   }, [updateCard, currentBoard])
 
+  // ビューポート変更ハンドラー
+  const handleViewportChange = useCallback((viewport: { x: number; y: number; scale: number }) => {
+    setViewportState(viewport)
+  }, [])
+
   // 新しいボード作成ハンドラー
   const handleCreateBoard = useCallback(() => {
     const boardName = `ボード ${new Date().toLocaleDateString()}`
     createBoard(boardName)
   }, [createBoard])
-
-  // グリッドレイアウトの設定 - 正方形グリッドにする
-  const gridLayoutCols = 40  // カラム数を増やして細かいグリッドに
-  const cellSize = currentBoard?.gridConfig.rowHeight || 40
-  const gridLayoutWidth = gridLayoutCols * cellSize  // 幅 = カラム数 × セルサイズ
 
   // ドラッグオーバーハンドラー
   const handleDragOver = useCallback((e: React.DragEvent, canvasState?: { x: number; y: number; scale: number }) => {
@@ -166,17 +175,21 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
       y = (y - canvasState.y) / canvasState.scale
     }
 
-    // グリッドセルに変換（react-grid-layoutの計算方法に合わせる）
-    const colWidth = gridLayoutWidth / gridLayoutCols
-    const cellHeight = currentBoard.gridConfig.rowHeight
-    const gridX = Math.max(0, Math.floor(x / colWidth))
-    const gridY = Math.max(0, Math.floor(y / cellHeight))
+    // グリッドセルに変換（右下方向のみ許可）
+    const colWidth = cellSize
+    const cellHeight = cellSize
+    const gridX = Math.max(0, Math.floor(x / colWidth)) // 0未満は禁止
+    const gridY = Math.max(0, Math.floor(y / cellHeight)) // 0未満は禁止
 
     console.log('DragOver Debug:', {
       rawX: x, rawY: y,
       colWidth, cellHeight,
       gridX, gridY,
-      gridLayoutWidth, gridLayoutCols
+      scale: canvasState?.scale || 1,
+      viewportX: canvasState?.x || 0,
+      viewportY: canvasState?.y || 0,
+      gridLayoutCols,
+      gridLayoutWidth
     })
 
     setDragPreview({
@@ -184,7 +197,7 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
       position: { x: gridX, y: gridY },
       isVisible: true
     })
-  }, [currentBoard, currentDragType])
+  }, [currentBoard, currentDragType, cellSize])
 
   // ドラッグリーブハンドラー
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -217,15 +230,15 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
           y = (y - canvasState.y) / canvasState.scale
         }
         
-        // グリッドセルに変換（react-grid-layoutの計算方法に合わせる）
-        const colWidth = gridLayoutWidth / gridLayoutCols
-        const cellHeight = currentBoard.gridConfig.rowHeight
-        const gridX = Math.floor(x / colWidth)
-        const gridY = Math.floor(y / cellHeight)
+        // グリッドセルに変換（右下方向のみ許可）
+        const colWidth = cellSize
+        const cellHeight = cellSize
+        const gridX = Math.max(0, Math.floor(x / colWidth)) // 0未満は禁止
+        const gridY = Math.max(0, Math.floor(y / cellHeight)) // 0未満は禁止
         
         const position = {
-          x: Math.max(0, gridX),
-          y: Math.max(0, gridY),
+          x: gridX, // 0以上の座標のみ
+          y: gridY, // 0以上の座標のみ
           w: 2,
           h: 2,
           z: 0
@@ -264,23 +277,37 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
       {/* ツールパレット */}
       <ToolPalette />
       
+      {/* デバッグ情報表示 */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute top-4 left-72 bg-black bg-opacity-70 text-white text-xs p-2 rounded z-50">
+          <div>Zoom: {Math.round(viewportState.scale * 100)}%</div>
+          <div>Cols: {gridLayoutCols}</div>
+          <div>Width: {Math.round(gridLayoutWidth)}</div>
+          <div>Viewport: {Math.round(viewportState.x)}, {Math.round(viewportState.y)}</div>
+        </div>
+      )}
+      
+      {/* 無限グリッド背景 - ズーム変換の外側に配置 */}
+      {isGridVisible && (
+        <InfiniteGrid 
+          cellSize={currentBoard.gridConfig.rowHeight}
+          strokeColor="rgba(59, 130, 246, 0.3)"
+          opacity={0.6}
+          viewportX={viewportState.x}
+          viewportY={viewportState.y}
+          viewportScale={viewportState.scale}
+        />
+      )}
+      
       {/* 無限キャンバス */}
       <InfiniteCanvas 
         className="w-full h-full"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onViewportChange={handleViewportChange}
       >
-        {/* 無限グリッド背景 */}
-        {isGridVisible && (
-          <InfiniteGrid 
-            cellSize={currentBoard.gridConfig.rowHeight}
-            strokeColor="rgba(59, 130, 246, 0.3)"
-            opacity={0.6}
-          />
-        )}
-        
-        {/* ReactGridLayout - 大きなキャンバス内で動作 */}
+        {/* ReactGridLayout - シンプルに配置 */}
         <div className={styles.infiniteWorkspace}>
           {/* ドラッグプレビュー */}
           {dragPreview && dragPreview.isVisible && (
@@ -288,8 +315,6 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
               cardType={dragPreview.cardType}
               position={dragPreview.position}
               gridConfig={currentBoard.gridConfig}
-              gridLayoutWidth={gridLayoutWidth}
-              gridLayoutCols={gridLayoutCols}
             />
           )}
           
@@ -297,15 +322,15 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
             className={styles.layout}
             layout={layout}
             cols={gridLayoutCols}
-            rowHeight={currentBoard.gridConfig.rowHeight}
+            rowHeight={cellSize}
             margin={currentBoard.gridConfig.margin}
-            containerPadding={currentBoard.gridConfig.containerPadding} // ストアの設定を使用
+            containerPadding={currentBoard.gridConfig.containerPadding} // 通常のパディング
             onLayoutChange={handleLayoutChange}
             isDraggable={true}
             isResizable={true}
             compactType={null}
             preventCollision={!isSnapToGrid}
-            autoSize={false} // 自動サイズ調整をオフ
+            autoSize={false}
             allowOverlap={!isSnapToGrid}
             useCSSTransforms={true}
             resizeHandles={['se', 's', 'e']}
@@ -332,6 +357,13 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
                     <div className="w-2 h-2 bg-white rounded-full"></div>
                   </div>
                 </div>
+                
+                {/* デバッグ情報（開発中のみ） */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="absolute top-0 right-0 bg-black text-white text-xs p-1 opacity-70 pointer-events-none z-10">
+                    {card.position.x},{card.position.y}
+                  </div>
+                )}
                 
                 <CardComponent 
                   card={card}

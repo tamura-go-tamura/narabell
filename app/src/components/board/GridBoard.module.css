@@ -21,10 +21,12 @@
 /* 無限ワークスペース */
 .infiniteWorkspace {
   position: relative;
-  width: 8000px;  /* 少し縮小 */
-  height: 8000px; /* 少し縮小 */
+  width: 16000px;  /* より大きなワークスペース */
+  height: 16000px; /* より大きなワークスペース */
   /* パディングは完全に削除 */
   box-sizing: content-box;
+  /* ズーム変換時でも正確な位置を保つ */
+  transform-origin: 0 0;
 }
 
 /* ReactGridLayoutのデフォルトスタイルを調整 */

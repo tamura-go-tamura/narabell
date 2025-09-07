@@ -10,8 +10,6 @@ interface PreviewCardProps {
     rowHeight: number
     margin: [number, number]
   }
-  gridLayoutWidth?: number
-  gridLayoutCols?: number
 }
 
 const getCardTypeInfo = (type: CardType) => {
@@ -30,17 +28,14 @@ const getCardTypeInfo = (type: CardType) => {
 export const PreviewCard: React.FC<PreviewCardProps> = ({ 
   cardType, 
   position, 
-  gridConfig,
-  gridLayoutWidth = 1600,  // この値は動的に変わる
-  gridLayoutCols = 40      // この値も動的に変わる
+  gridConfig
 }) => {
   const cardInfo = getCardTypeInfo(cardType)
   
-  // グリッド位置を実際のピクセル位置に変換（react-grid-layoutの計算に合わせる）
-  const colWidth = gridLayoutWidth / gridLayoutCols
-  const left = position.x * colWidth
+  // グリッド位置を実際のピクセル位置に変換（正方形グリッドで計算）
+  const left = position.x * gridConfig.rowHeight
   const top = position.y * gridConfig.rowHeight
-  const width = 2 * colWidth // 2セル分の幅
+  const width = 2 * gridConfig.rowHeight // 2セル分の幅
   const height = 2 * gridConfig.rowHeight // 2セル分の高さ
 
   return (

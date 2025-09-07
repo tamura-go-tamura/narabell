@@ -6,6 +6,7 @@ interface InfiniteCanvasProps {
   onDragOver?: (e: React.DragEvent, viewport?: { x: number; y: number; scale: number }) => void
   onDragLeave?: (e: React.DragEvent) => void
   onDrop?: (e: React.DragEvent, viewport?: { x: number; y: number; scale: number }) => void
+  onViewportChange?: (viewport: { x: number; y: number; scale: number }) => void
 }
 
 interface ViewportState {
@@ -19,7 +20,8 @@ export const InfiniteCanvas: React.FC<InfiniteCanvasProps> = ({
   className = '', 
   onDragOver, 
   onDragLeave,
-  onDrop 
+  onDrop,
+  onViewportChange
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState<ViewportState>({ x: 0, y: 0, scale: 1 })
@@ -47,12 +49,16 @@ export const InfiniteCanvas: React.FC<InfiniteCanvasProps> = ({
       const newX = viewport.x - (mouseX * scaleDiff)
       const newY = viewport.y - (mouseY * scaleDiff)
 
-      setViewport({ x: newX, y: newY, scale: newScale })
+      const newViewport = { x: newX, y: newY, scale: newScale }
+      setViewport(newViewport)
+      onViewportChange?.(newViewport)
     } else {
       // パン
       const newX = viewport.x - e.deltaX
       const newY = viewport.y - e.deltaY
-      setViewport(prev => ({ ...prev, x: newX, y: newY }))
+      const newViewport = { ...viewport, x: newX, y: newY }
+      setViewport(newViewport)
+      onViewportChange?.(newViewport)
     }
   }, [viewport])
 
@@ -72,11 +78,13 @@ export const InfiniteCanvas: React.FC<InfiniteCanvasProps> = ({
     const deltaX = e.clientX - dragStart.x
     const deltaY = e.clientY - dragStart.y
 
-    setViewport(prev => ({
-      ...prev,
+    const newViewport = {
+      ...viewport,
       x: dragViewportStart.x + deltaX,
       y: dragViewportStart.y + deltaY
-    }))
+    }
+    setViewport(newViewport)
+    onViewportChange?.(newViewport)
   }, [isDragging, dragStart, dragViewportStart])
 
   const handleMouseUp = useCallback(() => {
