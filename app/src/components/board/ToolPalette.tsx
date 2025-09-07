@@ -65,6 +65,8 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({ className = '' }) => {
 
   // ドラッグ開始ハンドラー
   const handleDragStart = (e: React.DragEvent, cardType: CardType) => {
+    console.log('🚀 ToolPalette drag start:', cardType)
+    
     e.dataTransfer.setData('application/json', JSON.stringify({
       type: 'card-type',
       cardType: cardType
@@ -73,6 +75,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({ className = '' }) => {
     setDraggedType(cardType)
     
     // グローバルイベントでドラッグ開始を通知
+    console.log('🚀 Dispatching cardDragStart event')
     window.dispatchEvent(new CustomEvent('cardDragStart', { 
       detail: { cardType } 
     }))
@@ -109,6 +112,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({ className = '' }) => {
 
   // ドラッグ終了ハンドラー
   const handleDragEnd = () => {
+    console.log('🚀 ToolPalette drag end')
     setDraggedType(null)
     // グローバルイベントでドラッグ終了を通知
     window.dispatchEvent(new CustomEvent('cardDragEnd'))

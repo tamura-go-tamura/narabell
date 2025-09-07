@@ -1,4 +1,4 @@
-import { GridBoard } from '@/components/board/GridBoard';
+import { NewGridBoard } from '@/components/board/NewGridBoard';
 
 export default function HomePage() {
   return (
@@ -8,14 +8,14 @@ export default function HomePage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Narabell</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">Grid-based card layout</span>
+            <span className="text-sm text-gray-600">Grid-based card layout (New Architecture)</span>
           </div>
         </div>
       </header>
 
       {/* Main Board Area */}
       <main className="h-[calc(100vh-73px)]">
-        <GridBoard />
+        <NewGridBoard />
       </main>
     </div>
   );
