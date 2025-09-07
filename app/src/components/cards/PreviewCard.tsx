@@ -31,8 +31,8 @@ export const PreviewCard: React.FC<PreviewCardProps> = ({
   cardType, 
   position, 
   gridConfig,
-  gridLayoutWidth = 1600,
-  gridLayoutCols = 20
+  gridLayoutWidth = 1600,  // この値は動的に変わる
+  gridLayoutCols = 40      // この値も動的に変わる
 }) => {
   const cardInfo = getCardTypeInfo(cardType)
   

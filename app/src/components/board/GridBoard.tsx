@@ -143,9 +143,10 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     createBoard(boardName)
   }, [createBoard])
 
-  // グリッドレイアウトの設定
-  const gridLayoutWidth = 1600
-  const gridLayoutCols = 20
+  // グリッドレイアウトの設定 - 正方形グリッドにする
+  const gridLayoutCols = 40  // カラム数を増やして細かいグリッドに
+  const cellSize = currentBoard?.gridConfig.rowHeight || 40
+  const gridLayoutWidth = gridLayoutCols * cellSize  // 幅 = カラム数 × セルサイズ
 
   // ドラッグオーバーハンドラー
   const handleDragOver = useCallback((e: React.DragEvent, canvasState?: { x: number; y: number; scale: number }) => {
@@ -170,6 +171,13 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     const cellHeight = currentBoard.gridConfig.rowHeight
     const gridX = Math.max(0, Math.floor(x / colWidth))
     const gridY = Math.max(0, Math.floor(y / cellHeight))
+
+    console.log('DragOver Debug:', {
+      rawX: x, rawY: y,
+      colWidth, cellHeight,
+      gridX, gridY,
+      gridLayoutWidth, gridLayoutCols
+    })
 
     setDragPreview({
       cardType: currentDragType,
