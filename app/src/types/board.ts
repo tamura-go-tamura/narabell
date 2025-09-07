@@ -177,6 +177,7 @@ export interface CardMetadata {
   version: number
   tags?: string[]
   notes?: string
+  isEditing?: boolean  // 編集モードフラグ
 }
 
 export interface GridConfiguration {

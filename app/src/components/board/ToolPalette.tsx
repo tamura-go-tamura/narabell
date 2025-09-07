@@ -10,7 +10,7 @@ interface ToolPaletteProps {
 
 export const ToolPalette: React.FC<ToolPaletteProps> = ({ className = '' }) => {
   const [isExpanded, setIsExpanded] = useState(true)
-  const { addCard, currentBoard } = useBoardStore()
+  const { addCard, currentBoard, isGridVisible, toggleGrid, isSnapToGrid, toggleSnapToGrid } = useBoardStore()
 
   const cardTypes: Array<{
     type: CardType
@@ -145,6 +145,45 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({ className = '' }) => {
                 </button>
               ))}
             </div>
+
+            {/* グリッド設定 */}
+            {currentBoard && (
+              <div className="mt-4 pt-3 border-t border-gray-200">
+                <div className="text-xs font-medium text-gray-600 mb-2">
+                  グリッド設定
+                </div>
+                
+                {/* グリッド表示/スナップ切り替え */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={toggleGrid}
+                    className={`
+                      flex-1 px-2 py-1 text-xs rounded border transition-all duration-200
+                      ${isGridVisible 
+                        ? 'bg-blue-100 border-blue-300 text-blue-700' 
+                        : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'
+                      }
+                    `}
+                    title="グリッド表示を切り替え"
+                  >
+                    📐 グリッド
+                  </button>
+                  <button
+                    onClick={toggleSnapToGrid}
+                    className={`
+                      flex-1 px-2 py-1 text-xs rounded border transition-all duration-200
+                      ${isSnapToGrid 
+                        ? 'bg-green-100 border-green-300 text-green-700' 
+                        : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200'
+                      }
+                    `}
+                    title="グリッドにスナップ"
+                  >
+                    🧲 スナップ
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* 追加情報 */}
             {!currentBoard && (

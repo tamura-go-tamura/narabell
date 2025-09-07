@@ -42,13 +42,13 @@ interface BoardState {
   exportBoard: (format: string) => void
 }
 
-// デフォルトのグリッド設定
+// デフォルトのグリッド設定 - 正方形グリッドを目指す
 const defaultGridConfig = {
   cols: 12,
-  rowHeight: 40,
-  margin: [10, 10] as [number, number],
-  padding: [10, 10] as [number, number],
-  containerPadding: [10, 10] as [number, number],
+  rowHeight: 97,  // colWidth（約97px）と同じ値で完全な正方形に
+  margin: [0, 0] as [number, number],  // マージンを0にしてCSSで制御
+  padding: [0, 0] as [number, number],
+  containerPadding: [20, 20] as [number, number],  // 標準的なパディング
   breakpoints: {
     lg: 1200,
     md: 996,

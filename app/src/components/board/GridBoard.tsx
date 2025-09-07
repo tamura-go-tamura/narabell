@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useCallback } from 'react'
-import { Responsive, WidthProvider, Layout } from 'react-grid-layout'
+import ReactGridLayout, { Responsive, WidthProvider, Layout } from 'react-grid-layout'
 import { useBoardStore } from '@/stores/boardStore'
 import { CardComponent } from '@/components/cards/CardComponent'
 import { ToolPalette } from '@/components/board/ToolPalette'
 import { Card, GridPosition } from '@/types/board'
+import styles from './GridBoard.module.css'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -25,7 +26,9 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     moveCard,
     resizeCard,
     selectCard,
-    clearSelection
+    clearSelection,
+    createBoard,
+    updateCard
   } = useBoardStore()
 
   // react-grid-layout用のレイアウト変換
@@ -42,6 +45,9 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
       maxH: card.size.maxH || 20
     }))
   }, [])
+
+  // シンプルなグリッド設定 - ReactGridLayoutに計算を任せる
+  const gridWidth = 1200 // 固定幅
 
   // レイアウト変更ハンドラー
   const handleLayoutChange = useCallback((layout: Layout[]) => {
@@ -89,10 +95,33 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     }
   }, [selectedCardIds, selectCard])
 
+  // カードダブルクリックで編集モード
+  const handleCardDoubleClick = useCallback((cardId: string, event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    const card = currentBoard?.cards.find(c => c.id === cardId)
+    if (!card) return
+    
+    // カードを編集モードに変更
+    updateCard(cardId, { 
+      metadata: { 
+        ...card.metadata,
+        isEditing: true 
+      } 
+    })
+  }, [updateCard, currentBoard])
+
   // 背景クリックで選択解除
   const handleBackgroundClick = useCallback(() => {
     clearSelection()
   }, [clearSelection])
+
+  // 新しいボード作成ハンドラー
+  const handleCreateBoard = useCallback(() => {
+    const boardName = `ボード ${new Date().toLocaleDateString()}`
+    createBoard(boardName)
+  }, [createBoard])
 
   if (!currentBoard) {
     return (
@@ -100,13 +129,38 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
         <div className="text-center">
           <div className="text-6xl mb-4">🔔</div>
           <h2 className="text-2xl font-semibold mb-2">Narabellへようこそ</h2>
-          <p>新しいボードを作成してください</p>
+          <p className="mb-6">新しいボードを作成してください</p>
+          <button
+            onClick={handleCreateBoard}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            新しいボードを作成
+          </button>
         </div>
       </div>
     )
   }
 
   const layout = convertToLayout(currentBoard.cards)
+  
+  // ReactGridLayoutのカラム幅を正確に計算
+  const containerWidth = gridWidth - currentBoard.gridConfig.containerPadding[0] * 2
+  const totalMarginWidth = currentBoard.gridConfig.margin[0] * (currentBoard.gridConfig.cols - 1)
+  const colWidth = (containerWidth - totalMarginWidth) / currentBoard.gridConfig.cols
+
+  // デバッグ用：グリッド計算値をコンソールに出力
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Grid Calculation:', {
+      gridWidth,
+      containerWidth,
+      totalMarginWidth,
+      colWidth,
+      rowHeight: currentBoard.gridConfig.rowHeight,
+      ratio: colWidth / currentBoard.gridConfig.rowHeight,
+      backgroundSizeX: colWidth + currentBoard.gridConfig.margin[0],
+      backgroundSizeY: currentBoard.gridConfig.rowHeight + currentBoard.gridConfig.margin[1]
+    })
+  }
 
   return (
     <div 
@@ -118,61 +172,83 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
       
       {/* メインワークスペース */}
       <div 
-        className="relative p-4"
+        className="relative min-h-full"
         style={{ 
           transform: `scale(${zoom})`,
           transformOrigin: 'top left',
           minHeight: '100vh'
         }}
       >
-        {/* グリッド背景 */}
-        {isGridVisible && (
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: `
-                linear-gradient(to right, var(--grid-line, #e5e7eb) 1px, transparent 1px),
-                linear-gradient(to bottom, var(--grid-line, #e5e7eb) 1px, transparent 1px)
-              `,
-              backgroundSize: `${currentBoard.gridConfig.rowHeight}px ${currentBoard.gridConfig.rowHeight}px`,
-              opacity: 0.5
-            }}
-          />
-        )}
-
-        {/* React Grid Layout */}
-        <ResponsiveGridLayout
-          className="layout"
-          layouts={{ lg: layout }}
-          breakpoints={currentBoard.gridConfig.breakpoints}
-          cols={currentBoard.gridConfig.colsForBreakpoint}
-          rowHeight={currentBoard.gridConfig.rowHeight}
-          margin={currentBoard.gridConfig.margin}
-          containerPadding={currentBoard.gridConfig.containerPadding}
-          onLayoutChange={handleLayoutChange}
-          isDraggable={true}
-          isResizable={true}
-          compactType={null}
-          preventCollision={isSnapToGrid}
-          autoSize={true}
-        >
+        {/* ワークスペース背景 */}
+        <div className="absolute inset-0 bg-gray-50" />
+        
+        {/* React Grid Layout with integrated background */}
+        <div className={styles.gridContainer}>
+          {/* グリッド背景 */}
+          {isGridVisible && (
+            <div 
+              className={styles.gridBackground}
+              style={{
+                marginLeft: `${currentBoard.gridConfig.containerPadding[0]}px`,
+                marginTop: `${currentBoard.gridConfig.containerPadding[1]}px`,
+                marginRight: `${currentBoard.gridConfig.containerPadding[0]}px`,
+                backgroundImage: `
+                  linear-gradient(to right, rgba(59, 130, 246, 0.4) 1px, transparent 1px),
+                  linear-gradient(to bottom, rgba(59, 130, 246, 0.4) 1px, transparent 1px)
+                `,
+                backgroundSize: `${colWidth}px ${currentBoard.gridConfig.rowHeight}px`,
+              }}
+            />
+          )}
+          
+          <ReactGridLayout
+            className={styles.layout}
+            layout={layout}
+            cols={currentBoard.gridConfig.cols}
+            rowHeight={currentBoard.gridConfig.rowHeight}
+            margin={currentBoard.gridConfig.margin}
+            containerPadding={currentBoard.gridConfig.containerPadding}
+            onLayoutChange={handleLayoutChange}
+            isDraggable={true}
+            isResizable={true}
+            compactType={null}
+            preventCollision={!isSnapToGrid}
+            autoSize={true}
+            allowOverlap={!isSnapToGrid}
+            useCSSTransforms={true}
+            resizeHandles={['se', 's', 'e']}
+            width={gridWidth}
+          >
           {currentBoard.cards.map(card => (
             <div 
               key={card.id}
-              className={`relative cursor-move ${
-                selectedCardIds.includes(card.id) 
-                  ? 'ring-2 ring-blue-500 ring-offset-2' 
-                  : ''
-              }`}
+              className={`
+                relative group transition-all duration-200 ease-in-out
+                ${selectedCardIds.includes(card.id) 
+                  ? 'ring-2 ring-blue-500 ring-offset-2 shadow-lg' 
+                  : 'hover:shadow-md hover:ring-1 hover:ring-gray-300'
+                }
+                ${card.metadata.isEditing ? 'ring-2 ring-green-500 ring-offset-1' : ''}
+              `}
               onClick={(e) => handleCardClick(card.id, e)}
+              onDoubleClick={(e) => handleCardDoubleClick(card.id, e)}
+              style={{ cursor: card.metadata.isEditing ? 'text' : 'move' }}
             >
+              {/* ドラッグハンドル表示（ホバー時） */}
+              <div className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                <div className="w-4 h-4 bg-blue-500 rounded-full shadow-sm flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+              </div>
+              
               <CardComponent 
                 card={card}
                 isSelected={selectedCardIds.includes(card.id)}
               />
             </div>
           ))}
-        </ResponsiveGridLayout>
+        </ReactGridLayout>
+        </div>
       </div>
     </div>
   )

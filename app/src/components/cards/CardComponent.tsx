@@ -17,6 +17,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   isSelected = false, 
   className = '' 
 }) => {
+  const isEditing = card.metadata.isEditing || false
   const cardStyle = {
     backgroundColor: card.style.backgroundColor,
     borderColor: card.style.borderColor,
@@ -33,11 +34,11 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   const renderCardContent = () => {
     switch (card.type) {
       case 'text':
-        return <TextCard card={card} />
+        return <TextCard card={card} isEditing={isEditing} />
       case 'image':
-        return <ImageCard card={card} />
+        return <ImageCard card={card} isEditing={isEditing} />
       case 'list':
-        return <ListCard card={card} />
+        return <ListCard card={card} isEditing={isEditing} />
       case 'chart':
         return (
           <div className="flex items-center justify-center h-full text-gray-500">

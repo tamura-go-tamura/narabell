@@ -6,10 +6,11 @@ import { useBoardStore } from '@/stores/boardStore'
 
 interface TextCardProps {
   card: Card
+  isEditing?: boolean
   className?: string
 }
 
-export const TextCard: React.FC<TextCardProps> = ({ card, className = '' }) => {
+export const TextCard: React.FC<TextCardProps> = ({ card, isEditing: externalIsEditing = false, className = '' }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -24,12 +25,28 @@ export const TextCard: React.FC<TextCardProps> = ({ card, className = '' }) => {
     }
   }, [textContent])
 
+  // 外部からの編集モードフラグを監視
+  useEffect(() => {
+    if (externalIsEditing) {
+      setIsEditing(true)
+    }
+  }, [externalIsEditing])
+
   const handleDoubleClick = () => {
     setIsEditing(true)
   }
 
   const handleBlur = () => {
     setIsEditing(false)
+    
+    // 編集モードフラグをリセット
+    updateCard(card.id, {
+      metadata: {
+        ...card.metadata,
+        isEditing: false
+      }
+    })
+    
     if (textContent && text !== textContent.text) {
       updateCard(card.id, {
         content: {

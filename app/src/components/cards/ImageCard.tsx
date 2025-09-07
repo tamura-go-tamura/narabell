@@ -6,10 +6,11 @@ import { useBoardStore } from '@/stores/boardStore'
 
 interface ImageCardProps {
   card: Card
+  isEditing?: boolean
   className?: string
 }
 
-export const ImageCard: React.FC<ImageCardProps> = ({ card, className = '' }) => {
+export const ImageCard: React.FC<ImageCardProps> = ({ card, isEditing: externalIsEditing = false, className = '' }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [imageUrl, setImageUrl] = useState('')
   const [caption, setCaption] = useState('')

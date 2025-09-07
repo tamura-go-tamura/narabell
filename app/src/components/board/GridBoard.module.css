@@ -1,0 +1,55 @@
+/* ReactGridLayoutのグリッド背景同期 */
+.gridContainer {
+  position: relative;
+}
+
+.gridBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.layout {
+  position: relative;
+  z-index: 10;
+}
+
+/* ReactGridLayoutのデフォルトスタイルを調整 */
+.layout .react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+  /* カードをグリッドセルの中央に配置するための余白 */
+  box-sizing: border-box;
+  padding: 6px; /* 上下左右に6pxの余白（少し増やした） */
+}
+
+.layout .react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+/* カードをグリッドセル内に正しく配置 */
+.layout .react-grid-item > div {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  /* カードの内容に影響を与えないように調整 */
+}
+
+.layout .react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  bottom: 0;
+  right: 0;
+  background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNiIgaGVpZ2h0PSI2IiB2aWV3Qm94PSIwIDAgNiA2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZG90cyBmaWxsPSIjOTk5IiBkPSJtMTUgMTJjMCAxLjY1Ny0xLjM0MyAzLTMgM3MtMy0xLjM0My0zLTMgMS4zNDMtMyAzLTMgMyAxLjM0MyAzIDN6bTAgNWMwIDEuNjU3LTEuMzQzIDMtMyAzcy0zLTEuMzQzLTMtMyAxLjM0My0zIDMtMyAzIDEuMzQzIDMgM3ptNSAwYzAgMS42NTctMS4zNDMgMy0zIDNzLTMtMS4zNDMtMy0zIDEuMzQzLTMgMy0zIDMgMS4zNDMgMyAzeiIvPgo8L3N2Zz4K');
+  background-position: bottom right;
+  padding: 0 3px 3px 0;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  box-sizing: border-box;
+  cursor: se-resize;
+}

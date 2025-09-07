@@ -6,10 +6,11 @@ import { useBoardStore } from '@/stores/boardStore'
 
 interface ListCardProps {
   card: Card
+  isEditing?: boolean
   className?: string
 }
 
-export const ListCard: React.FC<ListCardProps> = ({ card, className = '' }) => {
+export const ListCard: React.FC<ListCardProps> = ({ card, isEditing: externalIsEditing = false, className = '' }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [newItemText, setNewItemText] = useState('')
   const { updateCard } = useBoardStore()
