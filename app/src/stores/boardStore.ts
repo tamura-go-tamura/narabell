@@ -42,13 +42,13 @@ interface BoardState {
   exportBoard: (format: string) => void
 }
 
-// デフォルトのグリッド設定 - 正方形グリッドを目指す
+// デフォルトのグリッド設定 - 正方形グリッドで完全一致を目指す
 const defaultGridConfig = {
   cols: 12,
-  rowHeight: 97,  // colWidth（約97px）と同じ値で完全な正方形に
-  margin: [0, 0] as [number, number],  // マージンを0にしてCSSで制御
+  rowHeight: 40,  // グリッドセルサイズと完全に一致
+  margin: [0, 0] as [number, number],  // マージンを完全に0に
   padding: [0, 0] as [number, number],
-  containerPadding: [20, 20] as [number, number],  // 標準的なパディング
+  containerPadding: [0, 0] as [number, number],  // パディングも0に
   breakpoints: {
     lg: 1200,
     md: 996,
@@ -143,6 +143,62 @@ const createCard = (type: CardType, position: GridPosition): Card => {
           ],
           listStyle: 'checklist',
           allowReorder: true
+        }
+      }
+      break
+    
+    case 'chart':
+      content = {
+        type: 'chart',
+        data: {
+          chartType: 'bar',
+          title: 'チャート',
+          data: {
+            labels: ['データ1', 'データ2', 'データ3'],
+            datasets: [{
+              label: 'サンプルデータ',
+              data: [10, 20, 30],
+              backgroundColor: '#3b82f6'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        }
+      }
+      break
+    
+    case 'link':
+      content = {
+        type: 'link',
+        data: {
+          url: '',
+          title: 'リンク',
+          description: '',
+          favicon: '',
+          showPreview: true
+        }
+      }
+      break
+    
+    case 'calendar':
+      content = {
+        type: 'calendar',
+        data: {
+          events: [],
+          viewMode: 'month',
+          highlightDates: []
+        }
+      }
+      break
+    
+    case 'shape':
+      content = {
+        type: 'shape',
+        data: {
+          shape: 'rectangle',
+          fillPattern: 'solid'
         }
       }
       break

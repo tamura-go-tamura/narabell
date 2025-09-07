@@ -18,13 +18,22 @@
   z-index: 10;
 }
 
+/* 無限ワークスペース */
+.infiniteWorkspace {
+  position: relative;
+  width: 8000px;  /* 少し縮小 */
+  height: 8000px; /* 少し縮小 */
+  /* パディングは完全に削除 */
+  box-sizing: content-box;
+}
+
 /* ReactGridLayoutのデフォルトスタイルを調整 */
 .layout .react-grid-item {
   transition: all 200ms ease;
   transition-property: left, top, width, height;
-  /* カードをグリッドセルの中央に配置するための余白 */
+  /* パディングを完全に削除してグリッドと完全一致 */
   box-sizing: border-box;
-  padding: 6px; /* 上下左右に6pxの余白（少し増やした） */
+  padding: 0; /* パディングを0に */
 }
 
 .layout .react-grid-item.cssTransforms {
@@ -36,7 +45,8 @@
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  /* カードの内容に影響を与えないように調整 */
+  /* カードの内容を適切に表示するため、わずかなパディングを追加 */
+  padding: 4px;
 }
 
 .layout .react-grid-item > .react-resizable-handle {

@@ -1,16 +1,17 @@
 'use client'
 
-import React, { useCallback } from 'react'
-import ReactGridLayout, { Responsive, WidthProvider, Layout } from 'react-grid-layout'
+import React, { useCallback, useState, useEffect } from 'react'
+import ReactGridLayout, { Layout } from 'react-grid-layout'
 import { useBoardStore } from '@/stores/boardStore'
 import { CardComponent } from '@/components/cards/CardComponent'
+import { PreviewCard } from '@/components/cards/PreviewCard'
 import { ToolPalette } from '@/components/board/ToolPalette'
-import { Card, GridPosition } from '@/types/board'
+import { InfiniteCanvas } from '@/components/canvas/InfiniteCanvas'
+import { InfiniteGrid } from '@/components/canvas/InfiniteGrid'
+import { Card, GridPosition, CardType } from '@/types/board'
 import styles from './GridBoard.module.css'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
-
-const ResponsiveGridLayout = WidthProvider(Responsive)
 
 interface GridBoardProps {
   className?: string
@@ -22,14 +23,41 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     selectedCardIds,
     isGridVisible,
     isSnapToGrid,
-    zoom,
     moveCard,
     resizeCard,
     selectCard,
     clearSelection,
     createBoard,
-    updateCard
+    updateCard,
+    addCard
   } = useBoardStore()
+
+  const [dragPreview, setDragPreview] = useState<{
+    cardType: CardType
+    position: { x: number; y: number }
+    isVisible: boolean
+  } | null>(null)
+  const [currentDragType, setCurrentDragType] = useState<CardType | null>(null)
+
+  // カスタムイベントでドラッグ状態を監視
+  useEffect(() => {
+    const handleDragStart = (e: CustomEvent) => {
+      setCurrentDragType(e.detail.cardType)
+    }
+    
+    const handleDragEnd = () => {
+      setCurrentDragType(null)
+      setDragPreview(null)
+    }
+
+    window.addEventListener('cardDragStart', handleDragStart as EventListener)
+    window.addEventListener('cardDragEnd', handleDragEnd)
+
+    return () => {
+      window.removeEventListener('cardDragStart', handleDragStart as EventListener)
+      window.removeEventListener('cardDragEnd', handleDragEnd)
+    }
+  }, [])
 
   // react-grid-layout用のレイアウト変換
   const convertToLayout = useCallback((cards: Card[]): Layout[] => {
@@ -45,9 +73,6 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
       maxH: card.size.maxH || 20
     }))
   }, [])
-
-  // シンプルなグリッド設定 - ReactGridLayoutに計算を任せる
-  const gridWidth = 1200 // 固定幅
 
   // レイアウト変更ハンドラー
   const handleLayoutChange = useCallback((layout: Layout[]) => {
@@ -112,16 +137,99 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
     })
   }, [updateCard, currentBoard])
 
-  // 背景クリックで選択解除
-  const handleBackgroundClick = useCallback(() => {
-    clearSelection()
-  }, [clearSelection])
-
   // 新しいボード作成ハンドラー
   const handleCreateBoard = useCallback(() => {
     const boardName = `ボード ${new Date().toLocaleDateString()}`
     createBoard(boardName)
   }, [createBoard])
+
+  // グリッドレイアウトの設定
+  const gridLayoutWidth = 1600
+  const gridLayoutCols = 20
+
+  // ドラッグオーバーハンドラー
+  const handleDragOver = useCallback((e: React.DragEvent, canvasState?: { x: number; y: number; scale: number }) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+
+    if (!currentBoard || !currentDragType) return
+
+    // プレビュー位置を計算
+    const rect = e.currentTarget.getBoundingClientRect()
+    let x = e.clientX - rect.left
+    let y = e.clientY - rect.top
+
+    // ズーム・パンを考慮した座標変換
+    if (canvasState) {
+      x = (x - canvasState.x) / canvasState.scale
+      y = (y - canvasState.y) / canvasState.scale
+    }
+
+    // グリッドセルに変換（react-grid-layoutの計算方法に合わせる）
+    const colWidth = gridLayoutWidth / gridLayoutCols
+    const cellHeight = currentBoard.gridConfig.rowHeight
+    const gridX = Math.max(0, Math.floor(x / colWidth))
+    const gridY = Math.max(0, Math.floor(y / cellHeight))
+
+    setDragPreview({
+      cardType: currentDragType,
+      position: { x: gridX, y: gridY },
+      isVisible: true
+    })
+  }, [currentBoard, currentDragType])
+
+  // ドラッグリーブハンドラー
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // 子要素への移動は無視
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragPreview(null)
+    }
+  }, [])
+
+  // ドロップハンドラー
+  const handleDrop = useCallback((e: React.DragEvent, canvasState?: { x: number; y: number; scale: number }) => {
+    e.preventDefault()
+    setDragPreview(null)
+    
+    if (!currentBoard) return
+
+    try {
+      const transferData = e.dataTransfer.getData('application/json')
+      const data = JSON.parse(transferData)
+      
+      if (data.type === 'card-type') {
+        // キャンバスの変換状態を考慮した座標計算
+        const rect = e.currentTarget.getBoundingClientRect()
+        let x = e.clientX - rect.left
+        let y = e.clientY - rect.top
+        
+        // ズーム・パンを考慮した座標変換
+        if (canvasState) {
+          x = (x - canvasState.x) / canvasState.scale
+          y = (y - canvasState.y) / canvasState.scale
+        }
+        
+        // グリッドセルに変換（react-grid-layoutの計算方法に合わせる）
+        const colWidth = gridLayoutWidth / gridLayoutCols
+        const cellHeight = currentBoard.gridConfig.rowHeight
+        const gridX = Math.floor(x / colWidth)
+        const gridY = Math.floor(y / cellHeight)
+        
+        const position = {
+          x: Math.max(0, gridX),
+          y: Math.max(0, gridY),
+          w: 2,
+          h: 2,
+          z: 0
+        }
+        
+        // カードを追加
+        addCard(data.cardType, position)
+      }
+    } catch (error) {
+      console.error('ドロップエラー:', error)
+    }
+  }, [currentBoard, addCard])
 
   if (!currentBoard) {
     return (
@@ -142,114 +250,90 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className = '' }) => {
   }
 
   const layout = convertToLayout(currentBoard.cards)
-  
-  // ReactGridLayoutのカラム幅を正確に計算
-  const containerWidth = gridWidth - currentBoard.gridConfig.containerPadding[0] * 2
-  const totalMarginWidth = currentBoard.gridConfig.margin[0] * (currentBoard.gridConfig.cols - 1)
-  const colWidth = (containerWidth - totalMarginWidth) / currentBoard.gridConfig.cols
-
-  // デバッグ用：グリッド計算値をコンソールに出力
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Grid Calculation:', {
-      gridWidth,
-      containerWidth,
-      totalMarginWidth,
-      colWidth,
-      rowHeight: currentBoard.gridConfig.rowHeight,
-      ratio: colWidth / currentBoard.gridConfig.rowHeight,
-      backgroundSizeX: colWidth + currentBoard.gridConfig.margin[0],
-      backgroundSizeY: currentBoard.gridConfig.rowHeight + currentBoard.gridConfig.margin[1]
-    })
-  }
 
   return (
-    <div 
-      className={`relative w-full h-full overflow-auto ${className}`}
-      onClick={handleBackgroundClick}
-    >
+    <div className={`relative w-full h-full ${className}`}>
       {/* ツールパレット */}
       <ToolPalette />
       
-      {/* メインワークスペース */}
-      <div 
-        className="relative min-h-full"
-        style={{ 
-          transform: `scale(${zoom})`,
-          transformOrigin: 'top left',
-          minHeight: '100vh'
-        }}
+      {/* 無限キャンバス */}
+      <InfiniteCanvas 
+        className="w-full h-full"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
-        {/* ワークスペース背景 */}
-        <div className="absolute inset-0 bg-gray-50" />
+        {/* 無限グリッド背景 */}
+        {isGridVisible && (
+          <InfiniteGrid 
+            cellSize={currentBoard.gridConfig.rowHeight}
+            strokeColor="rgba(59, 130, 246, 0.3)"
+            opacity={0.6}
+          />
+        )}
         
-        {/* React Grid Layout with integrated background */}
-        <div className={styles.gridContainer}>
-          {/* グリッド背景 */}
-          {isGridVisible && (
-            <div 
-              className={styles.gridBackground}
-              style={{
-                marginLeft: `${currentBoard.gridConfig.containerPadding[0]}px`,
-                marginTop: `${currentBoard.gridConfig.containerPadding[1]}px`,
-                marginRight: `${currentBoard.gridConfig.containerPadding[0]}px`,
-                backgroundImage: `
-                  linear-gradient(to right, rgba(59, 130, 246, 0.4) 1px, transparent 1px),
-                  linear-gradient(to bottom, rgba(59, 130, 246, 0.4) 1px, transparent 1px)
-                `,
-                backgroundSize: `${colWidth}px ${currentBoard.gridConfig.rowHeight}px`,
-              }}
+        {/* ReactGridLayout - 大きなキャンバス内で動作 */}
+        <div className={styles.infiniteWorkspace}>
+          {/* ドラッグプレビュー */}
+          {dragPreview && dragPreview.isVisible && (
+            <PreviewCard
+              cardType={dragPreview.cardType}
+              position={dragPreview.position}
+              gridConfig={currentBoard.gridConfig}
+              gridLayoutWidth={gridLayoutWidth}
+              gridLayoutCols={gridLayoutCols}
             />
           )}
           
           <ReactGridLayout
             className={styles.layout}
             layout={layout}
-            cols={currentBoard.gridConfig.cols}
+            cols={gridLayoutCols}
             rowHeight={currentBoard.gridConfig.rowHeight}
             margin={currentBoard.gridConfig.margin}
-            containerPadding={currentBoard.gridConfig.containerPadding}
+            containerPadding={currentBoard.gridConfig.containerPadding} // ストアの設定を使用
             onLayoutChange={handleLayoutChange}
             isDraggable={true}
             isResizable={true}
             compactType={null}
             preventCollision={!isSnapToGrid}
-            autoSize={true}
+            autoSize={false} // 自動サイズ調整をオフ
             allowOverlap={!isSnapToGrid}
             useCSSTransforms={true}
             resizeHandles={['se', 's', 'e']}
-            width={gridWidth}
+            width={gridLayoutWidth}
           >
-          {currentBoard.cards.map(card => (
-            <div 
-              key={card.id}
-              className={`
-                relative group transition-all duration-200 ease-in-out
-                ${selectedCardIds.includes(card.id) 
-                  ? 'ring-2 ring-blue-500 ring-offset-2 shadow-lg' 
-                  : 'hover:shadow-md hover:ring-1 hover:ring-gray-300'
-                }
-                ${card.metadata.isEditing ? 'ring-2 ring-green-500 ring-offset-1' : ''}
-              `}
-              onClick={(e) => handleCardClick(card.id, e)}
-              onDoubleClick={(e) => handleCardDoubleClick(card.id, e)}
-              style={{ cursor: card.metadata.isEditing ? 'text' : 'move' }}
-            >
-              {/* ドラッグハンドル表示（ホバー時） */}
-              <div className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                <div className="w-4 h-4 bg-blue-500 rounded-full shadow-sm flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+            {currentBoard.cards.map(card => (
+              <div 
+                key={card.id}
+                className={`
+                  relative group transition-all duration-200 ease-in-out
+                  ${selectedCardIds.includes(card.id) 
+                    ? 'ring-2 ring-blue-500 ring-offset-2 shadow-lg' 
+                    : 'hover:shadow-md hover:ring-1 hover:ring-gray-300'
+                  }
+                  ${card.metadata.isEditing ? 'ring-2 ring-green-500 ring-offset-1' : ''}
+                `}
+                onClick={(e) => handleCardClick(card.id, e)}
+                onDoubleClick={(e) => handleCardDoubleClick(card.id, e)}
+                style={{ cursor: card.metadata.isEditing ? 'text' : 'move' }}
+              >
+                {/* ドラッグハンドル表示（ホバー時） */}
+                <div className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full shadow-sm flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  </div>
                 </div>
+                
+                <CardComponent 
+                  card={card}
+                  isSelected={selectedCardIds.includes(card.id)}
+                />
               </div>
-              
-              <CardComponent 
-                card={card}
-                isSelected={selectedCardIds.includes(card.id)}
-              />
-            </div>
-          ))}
-        </ReactGridLayout>
+            ))}
+          </ReactGridLayout>
         </div>
-      </div>
+      </InfiniteCanvas>
     </div>
   )
 }
