@@ -36,6 +36,7 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
     isVisible: boolean
   } | null>(null)
   const [currentDragType, setCurrentDragType] = useState<CardType | null>(null)
+  const [isCardDragging, setIsCardDragging] = useState(false)
 
   const cellSize = currentBoard?.gridConfig.rowHeight || 40
 
@@ -174,6 +175,18 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
     }
   }, [currentBoard, addCard, cellSize])
 
+  // カードドラッグ開始ハンドラー
+  const handleCardDragStart = useCallback(() => {
+    console.log('🎯 Card drag started - disabling pan')
+    setIsCardDragging(true)
+  }, [])
+
+  // カードドラッグ終了ハンドラー
+  const handleCardDragEnd = useCallback(() => {
+    console.log('🎯 Card drag ended - enabling pan')
+    setIsCardDragging(false)
+  }, [])
+
   if (!currentBoard) {
     return (
       <div className="flex items-center justify-center h-full text-gray-500">
@@ -226,6 +239,7 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        isCardDragging={isCardDragging}
         className="w-full h-full"
       >
         <DragDropCanvas
@@ -235,6 +249,8 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
           onCardMove={handleCardMove}
           onCardSelect={handleCardSelect}
           onClearSelection={clearSelection}
+          onCardDragStart={handleCardDragStart}
+          onCardDragEnd={handleCardDragEnd}
           className="w-full h-full"
         />
       </ZoomPanCanvas>

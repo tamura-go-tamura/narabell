@@ -15,6 +15,7 @@ interface ZoomPanCanvasProps {
   onDragOver?: (e: React.DragEvent, state: TransformState, canvasPos: { x: number, y: number }) => void
   onDragLeave?: (e: React.DragEvent) => void
   onDrop?: (e: React.DragEvent, state: TransformState, canvasPos: { x: number, y: number }) => void
+  isCardDragging?: boolean
   className?: string
 }
 
@@ -24,6 +25,7 @@ export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
   onDragOver,
   onDragLeave,
   onDrop,
+  isCardDragging = false,
   className = ''
 }) => {
   const transformRef = useRef<ReactZoomPanPinchRef>(null)
@@ -191,6 +193,17 @@ export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
     }
   }, [onDrop, getCurrentTransformState, transformScreenToCanvas])
 
+  // カードドラッグ状態の変化をログ出力（即座に反映）
+  React.useEffect(() => {
+    const panDisabled = isDragActive || isCardDragging
+    console.log('🔒 ZoomPanCanvas panning state:', {
+      isDragActive,
+      isCardDragging,
+      panDisabled,
+      timestamp: Date.now()
+    })
+  }, [isDragActive, isCardDragging])
+
   return (
     <div 
       ref={containerRef}
@@ -204,14 +217,15 @@ export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
         initialPositionY={0}
         minScale={0.1}
         maxScale={5}
-        smooth={true}
+        smooth={false} // スムージングを無効化してより応答性を高める
         wheel={{ step: 0.1 }}
         onTransformed={handleTransformed}
         doubleClick={{ disabled: true }}
         pinch={{ step: 5 }}
         panning={{
           velocityDisabled: true,
-          disabled: isDragActive,
+          disabled: isDragActive || isCardDragging, // ツールパレットドラッグまたはカードドラッグ中はパン無効
+          activationKeys: [], // キーによるパン有効化を無効
         }}
       >
         <TransformComponent

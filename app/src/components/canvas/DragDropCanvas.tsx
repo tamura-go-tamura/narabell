@@ -27,6 +27,8 @@ interface DragDropCanvasProps {
   onCardMove: (cardId: string, gridPosition: GridPosition) => void
   onCardSelect: (cardId: string) => void
   onClearSelection: () => void
+  onCardDragStart?: () => void
+  onCardDragEnd?: () => void
   children?: React.ReactNode
   className?: string
 }
@@ -38,16 +40,20 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
   onCardMove,
   onCardSelect,
   onClearSelection,
+  onCardDragStart,
+  onCardDragEnd,
   children,
   className = ''
 }) => {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 })
 
-  // センサー設定
+  // センサー設定 - 即座にドラッグ開始するように調整
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
-      distance: 8, // 8px移動で有効化
+      distance: 1, // 1px移動で即座に有効化
+      delay: 0,    // 遅延なし
+      tolerance: 0, // トレランスなし
     },
   })
   const sensors = useSensors(pointerSensor)
@@ -69,7 +75,12 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
   // ドラッグ開始ハンドラー
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event
+    
+    console.log('🎯 Card drag start:', active.id)
+    
+    // 状態をクリアしてからドラッグを開始
     setActiveId(active.id as string)
+    setDragOffset({ x: 0, y: 0 })
 
     // ドラッグ開始位置のオフセットを記録
     if (active.rect.current.translated) {
@@ -78,7 +89,10 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
         y: active.rect.current.translated.top
       })
     }
-  }, [])
+
+    // カードドラッグ開始を通知
+    onCardDragStart?.()
+  }, [onCardDragStart])
 
   // ドラッグ中ハンドラー
   const handleDragOver = useCallback((event: DragOverEvent) => {
@@ -89,8 +103,16 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, delta } = event
     
+    console.log('🎯 Card drag end - cleaning up state:', active?.id)
+    
+    // 状態を即座にクリア
+    setActiveId(null)
+    setDragOffset({ x: 0, y: 0 })
+    
+    // カードドラッグ終了を通知
+    onCardDragEnd?.()
+    
     if (!active || !delta) {
-      setActiveId(null)
       return
     }
 
@@ -110,6 +132,14 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
       }
       
       const newGridPos = pixelToGrid(newPixelPos)
+      
+      console.log('🎯 Moving card to new position:', {
+        cardId,
+        from: card.position,
+        to: newGridPos,
+        pixelDelta: delta
+      })
+      
       onCardMove(cardId, {
         x: newGridPos.x,
         y: newGridPos.y,
@@ -118,10 +148,7 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
         z: card.position.z
       })
     }
-
-    setActiveId(null)
-    setDragOffset({ x: 0, y: 0 })
-  }, [cards, cellSize, onCardMove, pixelToGrid])
+  }, [cards, cellSize, onCardMove, pixelToGrid, onCardDragEnd])
 
   // キャンバスクリック時の選択解除
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
@@ -137,6 +164,7 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      autoScroll={false} // 自動スクロールを無効化
       measuring={{
         droppable: {
           strategy: MeasuringStrategy.Always,
@@ -161,14 +189,19 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
         ))}
       </div>
 
-      {/* ドラッグオーバーレイ */}
-      <DragOverlay dropAnimation={null}>
+      {/* ドラッグオーバーレイ - より滑らかな動作のために最適化 */}
+      <DragOverlay 
+        dropAnimation={null}
+        style={{ cursor: 'grabbing' }}
+      >
         {activeCard && (
           <div
-            className="opacity-80"
+            className="opacity-90 pointer-events-none"
             style={{
               width: activeCard.size.w * cellSize,
               height: activeCard.size.h * cellSize,
+              transform: 'scale(1.05)',
+              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.15))',
             }}
           >
             <CardContainer

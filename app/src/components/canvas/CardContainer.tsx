@@ -58,12 +58,31 @@ export const CardContainer: React.FC<CardContainerProps> = ({
     onCardDoubleClick?.(card.id, event)
   }, [card.id, onCardDoubleClick])
 
+  // ドラッグ開始時にイベント伝播を停止
+  const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    // カードのドラッグが開始される前に、背景へのイベント伝播を防ぐ
+    event.stopPropagation()
+    // preventDefault は DnDKit の動作を妨げる可能性があるので削除
+    console.log('🎯 Card mouseDown:', card.id)
+  }, [card.id])
+
+  // その他のマウスイベントでも伝播を停止
+  const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    if (isDragging) {
+      event.stopPropagation()
+    }
+  }, [isDragging])
+
+  const handleMouseUp = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation()
+  }, [])
+
   return (
     <div
       ref={setNodeRef}
       className={`
-        absolute group transition-all duration-200 ease-in-out
-        ${isDragging ? 'z-50 opacity-50' : 'z-auto'}
+        absolute group transition-none ease-out
+        ${isDragging ? 'z-50 opacity-90 scale-105' : 'z-auto transition-all duration-200'}
         ${isSelected 
           ? 'ring-2 ring-blue-500 ring-offset-2 shadow-lg' 
           : 'hover:shadow-md hover:ring-1 hover:ring-gray-300'
@@ -76,12 +95,18 @@ export const CardContainer: React.FC<CardContainerProps> = ({
         top: `${top}px`,
         width: `${width}px`,
         height: `${height}px`,
-        transform: `translate3d(${dragTransform.x}px, ${dragTransform.y}px, 0)`,
-        zIndex: card.position.z,
-        cursor: card.metadata.isEditing ? 'text' : 'move'
+        transform: isDragging 
+          ? `translate3d(${dragTransform.x}px, ${dragTransform.y}px, 0) scale(1.05)`
+          : `translate3d(0px, 0px, 0)`,
+        zIndex: isDragging ? 1000 : card.position.z,
+        cursor: card.metadata.isEditing ? 'text' : (isDragging ? 'grabbing' : 'grab'),
+        willChange: isDragging ? 'transform' : 'auto',
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
       {...attributes}
       {...listeners}
     >
