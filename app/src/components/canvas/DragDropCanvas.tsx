@@ -169,6 +169,16 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
         droppable: {
           strategy: MeasuringStrategy.Always,
         },
+        draggable: {
+          measure: () => ({ 
+            width: 0, 
+            height: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0
+          })
+        }
       }}
     >
       <div 
