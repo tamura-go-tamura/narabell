@@ -11,7 +11,6 @@ interface CardContainerProps {
   isSelected: boolean
   onSelect?: () => void
   onCardDoubleClick?: (cardId: string, event: React.MouseEvent) => void
-  isDragOverlay?: boolean
   className?: string
 }
 
@@ -21,7 +20,6 @@ export const CardContainer: React.FC<CardContainerProps> = ({
   isSelected,
   onSelect,
   onCardDoubleClick,
-  isDragOverlay = false,
   className = ''
 }) => {
   const {
@@ -32,7 +30,16 @@ export const CardContainer: React.FC<CardContainerProps> = ({
     isDragging,
   } = useDraggable({
     id: card.id,
-    disabled: isDragOverlay, // ドラッグオーバーレイ時は無効化
+    disabled: false, // 常にドラッグ可能
+  })
+
+  // デバッグログ
+  console.log('🎯 CardContainer render:', {
+    cardId: card.id,
+    isDragging,
+    cellSize,
+    position: card.position,
+    size: card.size
   })
 
   // 位置とサイズをピクセル値に変換
@@ -82,8 +89,9 @@ export const CardContainer: React.FC<CardContainerProps> = ({
       ref={setNodeRef}
       className={`
         absolute group transition-none ease-out
-        ${isDragging ? 'z-50 opacity-90 scale-105' : 'z-auto transition-all duration-200'}
-        ${isSelected 
+        ${isDragging ? 'opacity-0 pointer-events-none' : ''}
+        ${!isDragging ? 'z-auto transition-all duration-200' : ''}
+        ${isSelected
           ? 'ring-2 ring-blue-500 ring-offset-2 shadow-lg' 
           : 'hover:shadow-md hover:ring-1 hover:ring-gray-300'
         }
@@ -95,12 +103,13 @@ export const CardContainer: React.FC<CardContainerProps> = ({
         top: `${top}px`,
         width: `${width}px`,
         height: `${height}px`,
-        transform: isDragging 
-          ? `translate3d(${dragTransform.x}px, ${dragTransform.y}px, 0) scale(1.05)`
-          : `translate3d(0px, 0px, 0)`,
-        zIndex: isDragging ? 1000 : card.position.z,
+        transform: isDragging
+          ? `translate3d(${dragTransform.x}px, ${dragTransform.y}px, 0) scale(0.01)` // ドラッグ中は極小化
+          : `translate3d(0px, 0px, 0)`, // 通常表示
+        zIndex: isDragging ? -1 : card.position.z,
         cursor: card.metadata.isEditing ? 'text' : (isDragging ? 'grabbing' : 'grab'),
         willChange: isDragging ? 'transform' : 'auto',
+        visibility: isDragging ? 'hidden' : 'visible', // ドラッグ中の元カードを完全に非表示
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}

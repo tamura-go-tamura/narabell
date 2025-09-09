@@ -202,6 +202,11 @@ export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
       panDisabled,
       timestamp: Date.now()
     })
+    
+    // カードドラッグ中でもツールパレットからのドラッグは受け付ける
+    if (isCardDragging && !isDragActive) {
+      console.log('🎯 Card is dragging but tool palette drag is still enabled')
+    }
   }, [isDragActive, isCardDragging])
 
   return (

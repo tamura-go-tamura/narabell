@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/core'
 import { Card, GridPosition } from '@/types/board'
 import { CardContainer } from './CardContainer'
+import { CardComponent } from '@/components/cards/CardComponent'
 
 interface Position {
   x: number
@@ -61,6 +62,15 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
   // アクティブなカードを取得
   const activeCard = activeId ? cards.find(card => card.id === activeId) : null
 
+  // カードリストが変更された時のクリーンアップ
+  useEffect(() => {
+    if (activeId && !cards.find(card => card.id === activeId)) {
+      console.log('🎯 Active card no longer exists, clearing state:', activeId)
+      setActiveId(null)
+      setDragOffset({ x: 0, y: 0 })
+    }
+  }, [cards, activeId])
+
   // 座標をグリッド座標に変換
   const pixelToGrid = useCallback((pixel: Position): GridPosition => {
     return {
@@ -75,11 +85,21 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
   // ドラッグ開始ハンドラー
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event
+    const cardId = active.id as string
     
-    console.log('🎯 Card drag start:', active.id)
+    console.log('🎯 Card drag start:', {
+      activeId: cardId,
+      existingActiveId: activeId,
+      cardExists: !!cards.find(c => c.id === cardId),
+      totalCards: cards.length
+    })
     
-    // 状態をクリアしてからドラッグを開始
-    setActiveId(active.id as string)
+    // 以前のドラッグ状態をクリアしてから新しいドラッグを開始
+    if (activeId && activeId !== cardId) {
+      console.log('🎯 Clearing previous drag state:', activeId)
+    }
+    
+    setActiveId(cardId)
     setDragOffset({ x: 0, y: 0 })
 
     // ドラッグ開始位置のオフセットを記録
@@ -92,7 +112,7 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
 
     // カードドラッグ開始を通知
     onCardDragStart?.()
-  }, [onCardDragStart])
+  }, [onCardDragStart, activeId, cards])
 
   // ドラッグ中ハンドラー
   const handleDragOver = useCallback((event: DragOverEvent) => {
@@ -103,23 +123,26 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, delta } = event
     
-    console.log('🎯 Card drag end - cleaning up state:', active?.id)
-    
-    // 状態を即座にクリア
-    setActiveId(null)
-    setDragOffset({ x: 0, y: 0 })
-    
+    console.log('🎯 Card drag end - processing:', {
+      activeId: active?.id,
+      delta,
+      hasCard: !!active
+    })
+
     // カードドラッグ終了を通知
     onCardDragEnd?.()
     
-    if (!active || !delta) {
+    if (!active) {
+      // activeが無い場合のみ状態をクリア
+      setActiveId(null)
+      setDragOffset({ x: 0, y: 0 })
       return
     }
 
     const cardId = active.id as string
     const card = cards.find(c => c.id === cardId)
     
-    if (card && onCardMove) {
+    if (card && onCardMove && delta) {
       // 現在の位置に移動量を加算
       const currentPixelPos = {
         x: card.position.x * cellSize,
@@ -148,6 +171,13 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
         z: card.position.z
       })
     }
+
+    // カードの移動処理完了後に状態をクリア（少し遅延を入れる）
+    setTimeout(() => {
+      console.log('🎯 Clearing drag state after delay')
+      setActiveId(null)
+      setDragOffset({ x: 0, y: 0 })
+    }, 50) // 50ms後にクリア
   }, [cards, cellSize, onCardMove, pixelToGrid, onCardDragEnd])
 
   // キャンバスクリック時の選択解除
@@ -201,28 +231,42 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
 
       {/* ドラッグオーバーレイ - より滑らかな動作のために最適化 */}
       <DragOverlay 
-        dropAnimation={null}
+        dropAnimation={{
+          duration: 200,
+          easing: 'ease-out',
+        }}
         style={{ cursor: 'grabbing' }}
       >
-        {activeCard && (
-          <div
-            className="opacity-90 pointer-events-none"
-            style={{
-              width: activeCard.size.w * cellSize,
-              height: activeCard.size.h * cellSize,
-              transform: 'scale(1.05)',
-              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.15))',
-            }}
-          >
-            <CardContainer
-              card={activeCard}
-              cellSize={cellSize}
-              isSelected={false}
-              onSelect={() => {}}
-              isDragOverlay={true}
-            />
-          </div>
-        )}
+        {activeId && activeCard ? (() => {
+          console.log('🎨 Rendering DragOverlay for card:', {
+            cardId: activeCard.id,
+            activeId,
+            hasActiveCard: !!activeCard
+          })
+          return (
+            <div
+              className="pointer-events-none"
+              style={{
+                width: activeCard.size.w * cellSize,
+                height: activeCard.size.h * cellSize,
+                transform: 'scale(1.02)', // 少し控えめなスケーリング
+                filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))', // より強いシャドウ
+                opacity: 0.95,
+                borderRadius: '8px',
+                overflow: 'hidden',
+              }}
+            >
+              {/* CardComponentを使用してカードの見た目を表示 */}
+              <CardComponent 
+                card={activeCard}
+                isSelected={false}
+              />
+            </div>
+          )
+        })() : (() => {
+          console.log('🎨 No activeCard for DragOverlay:', { activeId, cardsCount: cards.length })
+          return null
+        })()}
       </DragOverlay>
     </DndContext>
   )
