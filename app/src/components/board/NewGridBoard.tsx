@@ -36,7 +36,7 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
     isVisible: boolean
   } | null>(null)
   const [currentDragType, setCurrentDragType] = useState<CardType | null>(null)
-  const [isCardDragging, setIsCardDragging] = useState(false)
+  const [isDraggingExistingCard, setIsDraggingExistingCard] = useState(false)
 
   const cellSize = currentBoard?.gridConfig.rowHeight || 40
 
@@ -45,12 +45,14 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
     const handleDragStart = (e: CustomEvent) => {
       console.log('🎯 Drag start event received:', e.detail)
       setCurrentDragType(e.detail.cardType)
+      setIsDraggingExistingCard(e.detail.isDraggingExistingCard || false)
     }
     
     const handleDragEnd = () => {
       console.log('🎯 Drag end event received')
       setCurrentDragType(null)
       setDragPreview(null)
+      setIsDraggingExistingCard(false)
     }
 
     window.addEventListener('cardDragStart', handleDragStart as EventListener)
@@ -61,6 +63,57 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
       window.removeEventListener('cardDragEnd', handleDragEnd)
     }
   }, [])
+
+  // 既存カードのドラッグ時のマウス追跡
+  useEffect(() => {
+    if (!isDraggingExistingCard || !currentDragType) return
+
+    let animationId: number | null = null
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // 前のアニメーションフレームをキャンセル
+      if (animationId) {
+        cancelAnimationFrame(animationId)
+      }
+
+      // requestAnimationFrameを使って滑らかな更新
+      animationId = requestAnimationFrame(() => {
+        // スクリーン座標を取得
+        const screenX = e.clientX
+        const screenY = e.clientY
+        
+        // プレビューカードのサイズ（スクリーン座標系）
+        const cardWidthScreen = cellSize * transformState.scale * 2 // 2セル分
+        const cardHeightScreen = cellSize * transformState.scale * 2 // 2セル分
+        
+        // マウスカーソルからの固定ピクセルオフセット（ズームに関係なく一定）
+        const fixedOffsetX = -cardWidthScreen * 0.3 // カード幅の30%左
+        const fixedOffsetY = -cardHeightScreen * 0.8 // カード高さの80%上
+        
+        // スクリーン座標でオフセットを適用
+        const offsetScreenX = screenX + fixedOffsetX
+        const offsetScreenY = screenY + fixedOffsetY
+        
+        // オフセット適用後のスクリーン座標をキャンバス座標に変換
+        const canvasX = (offsetScreenX - transformState.x) / transformState.scale
+        const canvasY = (offsetScreenY - transformState.y) / transformState.scale
+
+        setDragPreview({
+          cardType: currentDragType,
+          position: { x: canvasX, y: canvasY }, // キャンバス座標で保存
+          isVisible: true
+        })
+      })
+    }
+
+    document.addEventListener('mousemove', handleMouseMove, { passive: true })
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      if (animationId) {
+        cancelAnimationFrame(animationId)
+      }
+    }
+  }, [isDraggingExistingCard, currentDragType, transformState, cellSize])
 
   // 初期ボード作成
   useEffect(() => {
@@ -177,14 +230,12 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
 
   // カードドラッグ開始ハンドラー
   const handleCardDragStart = useCallback(() => {
-    console.log('🎯 Card drag started - disabling pan')
-    setIsCardDragging(true)
+    console.log('🎯 Card drag started')
   }, [])
 
   // カードドラッグ終了ハンドラー
   const handleCardDragEnd = useCallback(() => {
-    console.log('🎯 Card drag ended - enabling pan')
-    setIsCardDragging(false)
+    console.log('🎯 Card drag ended')
   }, [])
 
   if (!currentBoard) {
@@ -239,13 +290,13 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        isCardDragging={isCardDragging}
         className="w-full h-full"
       >
         <DragDropCanvas
           cards={currentBoard.cards}
           selectedCardIds={selectedCardIds}
           cellSize={cellSize}
+          transformState={transformState}
           onCardMove={handleCardMove}
           onCardSelect={handleCardSelect}
           onClearSelection={clearSelection}
@@ -257,19 +308,16 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
       
       {/* ドラッグプレビュー - ZoomPanCanvasの外側に配置 */}
       {dragPreview && dragPreview.isVisible && (
-        <>
-          {console.log('🎨 Rendering preview:', dragPreview)}
-          <NewPreviewCard
-            cardType={dragPreview.cardType}
-            position={{
-              // キャンバス座標からスクリーン座標に変換
-              // 数式: screen = (canvas * scale) + panOffset
-              x: (dragPreview.position.x * transformState.scale) + transformState.x,
-              y: (dragPreview.position.y * transformState.scale) + transformState.y
-            }}
-            cellSize={cellSize * transformState.scale}
-          />
-        </>
+        <NewPreviewCard
+          cardType={dragPreview.cardType}
+          position={{
+            // 両方ともキャンバス座標からスクリーン座標に変換
+            x: (dragPreview.position.x * transformState.scale) + transformState.x,
+            y: (dragPreview.position.y * transformState.scale) + transformState.y
+          }}
+          cellSize={cellSize * transformState.scale}
+          snapToGrid={!isDraggingExistingCard} // 既存カードのドラッグ時はスナップを無効
+        />
       )}
     </div>
   )

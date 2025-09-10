@@ -15,6 +15,7 @@ import {
 import { Card, GridPosition } from '@/types/board'
 import { CardContainer } from './CardContainer'
 import { CardComponent } from '@/components/cards/CardComponent'
+import { TransformState } from './ZoomPanCanvas'
 
 interface Position {
   x: number
@@ -25,6 +26,7 @@ interface DragDropCanvasProps {
   cards: Card[]
   selectedCardIds: string[]
   cellSize: number
+  transformState?: TransformState
   onCardMove: (cardId: string, gridPosition: GridPosition) => void
   onCardSelect: (cardId: string) => void
   onClearSelection: () => void
@@ -38,6 +40,7 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
   cards,
   selectedCardIds,
   cellSize,
+  transformState = { x: 0, y: 0, scale: 1 },
   onCardMove,
   onCardSelect,
   onClearSelection,
@@ -48,13 +51,14 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
 }) => {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 })
+  const [isDragPreviewActive, setIsDragPreviewActive] = useState(false)
 
-  // センサー設定 - 即座にドラッグ開始するように調整
+  // センサー設定 - より安定した設定に調整
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
-      distance: 1, // 1px移動で即座に有効化
+      distance: 5, // 5px移動で有効化（がたつき防止）
       delay: 0,    // 遅延なし
-      tolerance: 0, // トレランスなし
+      tolerance: 5, // 5pxの許容範囲
     },
   })
   const sensors = useSensors(pointerSensor)
@@ -86,11 +90,12 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event
     const cardId = active.id as string
+    const card = cards.find(c => c.id === cardId)
     
     console.log('🎯 Card drag start:', {
       activeId: cardId,
       existingActiveId: activeId,
-      cardExists: !!cards.find(c => c.id === cardId),
+      cardExists: !!card,
       totalCards: cards.length
     })
     
@@ -101,13 +106,19 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
     
     setActiveId(cardId)
     setDragOffset({ x: 0, y: 0 })
+    setIsDragPreviewActive(true)
 
-    // ドラッグ開始位置のオフセットを記録
-    if (active.rect.current.translated) {
-      setDragOffset({
-        x: active.rect.current.translated.left,
-        y: active.rect.current.translated.top
+    // カードタイプを使ってツールパレットと同じプレビューシステムを使用
+    if (card) {
+      // カスタムイベントを発行してツールパレットと同じプレビューを有効化
+      const dragEvent = new CustomEvent('cardDragStart', {
+        detail: { 
+          cardType: card.type,
+          isDraggingExistingCard: true,
+          transformState
+        }
       })
+      window.dispatchEvent(dragEvent)
     }
 
     // カードドラッグ開始を通知
@@ -129,6 +140,13 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
       hasCard: !!active
     })
 
+    // プレビュー状態をクリア
+    setIsDragPreviewActive(false)
+    
+    // カスタムイベントを発行してプレビューを無効化
+    const dragEndEvent = new CustomEvent('cardDragEnd')
+    window.dispatchEvent(dragEndEvent)
+    
     // カードドラッグ終了を通知
     onCardDragEnd?.()
     
@@ -177,6 +195,7 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
       console.log('🎯 Clearing drag state after delay')
       setActiveId(null)
       setDragOffset({ x: 0, y: 0 })
+      setIsDragPreviewActive(false)
     }, 50) // 50ms後にクリア
   }, [cards, cellSize, onCardMove, pixelToGrid, onCardDragEnd])
 
@@ -229,45 +248,7 @@ export const DragDropCanvas: React.FC<DragDropCanvasProps> = ({
         ))}
       </div>
 
-      {/* ドラッグオーバーレイ - より滑らかな動作のために最適化 */}
-      <DragOverlay 
-        dropAnimation={{
-          duration: 200,
-          easing: 'ease-out',
-        }}
-        style={{ cursor: 'grabbing' }}
-      >
-        {activeId && activeCard ? (() => {
-          console.log('🎨 Rendering DragOverlay for card:', {
-            cardId: activeCard.id,
-            activeId,
-            hasActiveCard: !!activeCard
-          })
-          return (
-            <div
-              className="pointer-events-none"
-              style={{
-                width: activeCard.size.w * cellSize,
-                height: activeCard.size.h * cellSize,
-                transform: 'scale(1.02)', // 少し控えめなスケーリング
-                filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))', // より強いシャドウ
-                opacity: 0.95,
-                borderRadius: '8px',
-                overflow: 'hidden',
-              }}
-            >
-              {/* CardComponentを使用してカードの見た目を表示 */}
-              <CardComponent 
-                card={activeCard}
-                isSelected={false}
-              />
-            </div>
-          )
-        })() : (() => {
-          console.log('🎨 No activeCard for DragOverlay:', { activeId, cardsCount: cards.length })
-          return null
-        })()}
-      </DragOverlay>
+      {/* DragOverlayは座標変換の問題があるため使用しない */}
     </DndContext>
   )
 }

@@ -9,6 +9,7 @@ interface NewPreviewCardProps {
   position: Position  // ピクセル座標
   cellSize: number
   className?: string
+  snapToGrid?: boolean // グリッドにスナップするかどうか
 }
 
 const getCardTypeInfo = (type: CardType) => {
@@ -24,26 +25,20 @@ const getCardTypeInfo = (type: CardType) => {
   return cardTypes[type] || cardTypes.text
 }
 
-export const NewPreviewCard: React.FC<NewPreviewCardProps> = ({ 
+export const NewPreviewCard: React.FC<NewPreviewCardProps> = React.memo(({ 
   cardType, 
   position,
   cellSize,
-  className = ''
+  className = '',
+  snapToGrid = true
 }) => {
   const cardInfo = getCardTypeInfo(cardType)
   
-  // グリッドにスナップした位置を計算
-  const snappedX = Math.floor(position.x / cellSize) * cellSize
-  const snappedY = Math.floor(position.y / cellSize) * cellSize
+  // スナップが有効な場合はグリッドにスナップした位置を計算、無効な場合はそのまま使用
+  const finalX = snapToGrid ? Math.floor(position.x / cellSize) * cellSize : position.x
+  const finalY = snapToGrid ? Math.floor(position.y / cellSize) * cellSize : position.y
   const width = 2 * cellSize // 2セル分の幅
   const height = 2 * cellSize // 2セル分の高さ
-
-  console.log('🎨 NewPreviewCard rendering:', { 
-    cardType, 
-    position, 
-    snapped: { x: snappedX, y: snappedY },
-    size: { width, height }
-  })
 
   return (
     <div
@@ -51,16 +46,19 @@ export const NewPreviewCard: React.FC<NewPreviewCardProps> = ({
         absolute pointer-events-none z-50 
         border-4 border-dashed rounded-lg 
         ${cardInfo.color}
-        opacity-80 transition-all duration-150
+        opacity-80
         flex items-center justify-center
         shadow-lg
         ${className}
       `}
       style={{
-        left: `${snappedX}px`,
-        top: `${snappedY}px`,
+        left: `${finalX}px`,
+        top: `${finalY}px`,
         width: `${width}px`,
         height: `${height}px`,
+        transform: 'translate3d(0, 0, 0)', // GPU加速を有効化
+        willChange: 'transform', // 最適化のヒント
+        transition: snapToGrid ? 'left 0.1s ease-out, top 0.1s ease-out' : 'none', // スナップ時のみアニメーション
       }}
     >
       <div className="text-center">
@@ -69,4 +67,4 @@ export const NewPreviewCard: React.FC<NewPreviewCardProps> = ({
       </div>
     </div>
   )
-}
+})
