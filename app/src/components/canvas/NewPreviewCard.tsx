@@ -6,10 +6,11 @@ import { Position } from '@/lib/coordinates'
 
 interface NewPreviewCardProps {
   cardType: CardType
-  position: Position  // ピクセル座標
-  cellSize: number
+  position: Position  // スクリーン座標でのカード中央座標
+  cellSize: number    // ベースセルサイズ（スケール適用前）
+  scale: number       // ズームスケール
   className?: string
-  snapToGrid?: boolean // グリッドにスナップするかどうか
+  snapToGrid?: boolean
 }
 
 const getCardTypeInfo = (type: CardType) => {
@@ -29,21 +30,35 @@ export const NewPreviewCard: React.FC<NewPreviewCardProps> = React.memo(({
   cardType, 
   position,
   cellSize,
+  scale,
   className = '',
   snapToGrid = true
 }) => {
   const cardInfo = getCardTypeInfo(cardType)
   
-  // スナップが有効な場合はグリッドにスナップした位置を計算、無効な場合はそのまま使用
-  const finalX = snapToGrid ? Math.floor(position.x / cellSize) * cellSize : position.x
-  const finalY = snapToGrid ? Math.floor(position.y / cellSize) * cellSize : position.y
-  const width = 2 * cellSize // 2セル分の幅
-  const height = 2 * cellSize // 2セル分の高さ
+  // カードサイズを計算（2x2セル、スケール適用）
+  const scaledCellSize = cellSize * scale
+  const width = 2 * scaledCellSize
+  const height = 2 * scaledCellSize
+  
+  // 中央座標から左上座標を計算
+  const finalX = position.x - width / 2
+  const finalY = position.y - height / 2
+
+  console.log('🎯 NewPreviewCard rendering:', {
+    cardType,
+    centerPosition: position,
+    finalPosition: { x: finalX, y: finalY },
+    size: { width, height },
+    cellSize,
+    scale,
+    scaledCellSize
+  })
 
   return (
     <div
       className={`
-        absolute pointer-events-none z-50 
+        fixed pointer-events-none z-50 
         border-4 border-dashed rounded-lg 
         ${cardInfo.color}
         opacity-80
@@ -58,7 +73,7 @@ export const NewPreviewCard: React.FC<NewPreviewCardProps> = React.memo(({
         height: `${height}px`,
         transform: 'translate3d(0, 0, 0)', // GPU加速を有効化
         willChange: 'transform', // 最適化のヒント
-        transition: snapToGrid ? 'left 0.1s ease-out, top 0.1s ease-out' : 'none', // スナップ時のみアニメーション
+        transition: 'none', // アニメーションは無効（滑らかさよりも正確性を優先）
       }}
     >
       <div className="text-center">
