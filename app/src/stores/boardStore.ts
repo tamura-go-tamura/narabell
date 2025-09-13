@@ -96,133 +96,20 @@ const defaultCardStyle: CardStyle = {
 const createCard = (type: CardType, position: GridPosition): Card => {
   const id = `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   
-  let content: CardContent
-  
-  switch (type) {
-    case 'text':
-      content = {
-        type: 'text',
-        data: {
-          text: 'テキストを入力してください',
-          fontSize: 14,
-          fontFamily: 'system-ui',
-          fontWeight: 'normal',
-          color: '#000000',
-          textAlign: 'left',
-          verticalAlign: 'top',
-          lineHeight: 1.5,
-          letterSpacing: 0
-        }
-      }
-      break
-    
-    case 'image':
-      content = {
-        type: 'image',
-        data: {
-          src: '',
-          alt: '',
-          fit: 'cover',
-          alignment: 'center'
-        }
-      }
-      break
-    
-    case 'list':
-      content = {
-        type: 'list',
-        data: {
-          items: [
-            {
-              id: 'item-1',
-              text: 'アイテム 1',
-              checked: false,
-              completed: false,
-              priority: 'medium'
-            }
-          ],
-          listStyle: 'checklist',
-          allowReorder: true
-        }
-      }
-      break
-    
-    case 'chart':
-      content = {
-        type: 'chart',
-        data: {
-          chartType: 'bar',
-          title: 'チャート',
-          data: {
-            labels: ['データ1', 'データ2', 'データ3'],
-            datasets: [{
-              label: 'サンプルデータ',
-              data: [10, 20, 30],
-              backgroundColor: '#3b82f6'
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false
-          }
-        }
-      }
-      break
-    
-    case 'link':
-      content = {
-        type: 'link',
-        data: {
-          url: '',
-          title: 'リンク',
-          description: '',
-          favicon: '',
-          showPreview: true
-        }
-      }
-      break
-    
-    case 'calendar':
-      content = {
-        type: 'calendar',
-        data: {
-          events: [],
-          viewMode: 'month',
-          highlightDates: []
-        }
-      }
-      break
-    
-    case 'shape':
-      content = {
-        type: 'shape',
-        data: {
-          shape: 'rectangle',
-          fillPattern: 'solid'
-        }
-      }
-      break
-    
-    default:
-      content = {
-        type: 'text',
-        data: {
-          text: '新しいカード',
-          fontSize: 14,
-          fontFamily: 'system-ui',
-          fontWeight: 'normal',
-          color: '#000000',
-          textAlign: 'left',
-          verticalAlign: 'top',
-          lineHeight: 1.5,
-          letterSpacing: 0
-        }
-      }
+  const content: CardContent = {
+    type: 'shape',
+    data: {
+      text: '',
+      fontSize: 14,
+      fontWeight: 'normal',
+      textAlign: 'left',
+      color: '#000000'
+    }
   }
   
   return {
     id,
-    type,
+    type: 'shape',
     position,
     size: { w: 2, h: 2 },
     content,
@@ -301,8 +188,8 @@ export const useBoardStore = create<BoardState>()(
     },
     
     // Card操作
-    addCard: (type: CardType, position: GridPosition) => {
-      const newCard = createCard(type, position)
+    addCard: (_type: CardType, position: GridPosition) => {
+      const newCard = createCard('shape', position)
       
       set(state => {
         if (!state.currentBoard) return state
@@ -482,8 +369,8 @@ export const useBoardStorePersisted = create<BoardState>()(
         }))
       },
       
-      addCard: (type: CardType, position: GridPosition) => {
-        const newCard = createCard(type, position)
+      addCard: (_type: CardType, position: GridPosition) => {
+        const newCard = createCard('shape', position)
         
         set(state => {
           if (!state.currentBoard) return state

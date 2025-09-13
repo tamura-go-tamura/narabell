@@ -1,10 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Card } from '@/types/board'
-import { TextCard } from './TextCard'
-import { ImageCard } from './ImageCard'
-import { ListCard } from './ListCard'
+import { useBoardStore } from '@/stores/boardStore'
 
 interface CardComponentProps {
   card: Card
@@ -17,102 +15,95 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   isSelected = false, 
   className = '' 
 }) => {
-  const isEditing = card.metadata.isEditing || false
+  const { updateCard } = useBoardStore()
+  const [isEditing, setIsEditing] = useState(false)
+  const [text, setText] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (card.content.type === 'shape') {
+      setText(card.content.data.text)
+    }
+  }, [card.content])
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus()
+      textareaRef.current.select()
+    }
+  }, [isEditing])
+
+  const handleDoubleClick = () => {
+    setIsEditing(true)
+  }
+
+  const handleBlur = () => {
+    setIsEditing(false)
+    if (card.content.type === 'shape' && text !== card.content.data.text) {
+      updateCard(card.id, {
+        content: {
+          type: 'shape',
+          data: { ...card.content.data, text }
+        }
+      })
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      handleBlur()
+    }
+    if (e.key === 'Escape') {
+      setText(card.content.type === 'shape' ? card.content.data.text : '')
+      setIsEditing(false)
+    }
+  }
+
+  const style = card.style
   const cardStyle = {
-    backgroundColor: card.style.backgroundColor,
-    borderColor: card.style.borderColor,
-    borderWidth: `${card.style.borderWidth}px`,
-    borderStyle: card.style.borderStyle,
-    borderRadius: `${card.style.borderRadius}px`,
-    opacity: card.style.opacity,
-    transform: `rotate(${card.style.rotation}deg)`,
-    boxShadow: card.style.shadow.enabled 
-      ? `${card.style.shadow.offsetX}px ${card.style.shadow.offsetY}px ${card.style.shadow.blur}px ${card.style.shadow.spread}px ${card.style.shadow.color}`
+    backgroundColor: style.backgroundColor,
+    borderColor: style.borderColor,
+    borderWidth: `${style.borderWidth}px`,
+    borderStyle: style.borderStyle,
+    borderRadius: `${style.borderRadius}px`,
+    opacity: style.opacity,
+    transform: `rotate(${style.rotation}deg)`,
+    boxShadow: style.shadow.enabled 
+      ? `${style.shadow.offsetX}px ${style.shadow.offsetY}px ${style.shadow.blur}px ${style.shadow.spread}px ${style.shadow.color}`
       : 'none'
   }
 
-  const renderCardContent = () => {
-    switch (card.type) {
-      case 'text':
-        return <TextCard card={card} isEditing={isEditing} />
-      case 'image':
-        return <ImageCard card={card} isEditing={isEditing} />
-      case 'list':
-        return <ListCard card={card} isEditing={isEditing} />
-      case 'chart':
-        return (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center">
-              <div className="text-2xl mb-2">📊</div>
-              <div className="text-sm">Chart Card</div>
-              <div className="text-xs text-gray-400">Coming Soon</div>
-            </div>
-          </div>
-        )
-      case 'link':
-        return (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center">
-              <div className="text-2xl mb-2">🔗</div>
-              <div className="text-sm">Link Card</div>
-              <div className="text-xs text-gray-400">Coming Soon</div>
-            </div>
-          </div>
-        )
-      case 'calendar':
-        return (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center">
-              <div className="text-2xl mb-2">📅</div>
-              <div className="text-sm">Calendar Card</div>
-              <div className="text-xs text-gray-400">Coming Soon</div>
-            </div>
-          </div>
-        )
-      case 'shape':
-        return (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center">
-              <div className="text-2xl mb-2">🔲</div>
-              <div className="text-sm">Shape Card</div>
-              <div className="text-xs text-gray-400">Coming Soon</div>
-            </div>
-          </div>
-        )
-      default:
-        return (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            <div className="text-center">
-              <div className="text-2xl mb-2">❓</div>
-              <div className="text-sm">Unknown Card</div>
-            </div>
-          </div>
-        )
-    }
+  const textStyle = {
+    fontSize: `${card.content.data.fontSize}px`,
+    fontWeight: card.content.data.fontWeight,
+    textAlign: card.content.data.textAlign as 'left' | 'center' | 'right',
+    color: card.content.data.color,
+    lineHeight: 1.4
   }
 
   return (
     <div
-      className={`
-        w-full h-full overflow-hidden transition-all duration-200
-        hover:shadow-lg
-        ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
-        ${className}
-      `}
+      className={`w-full h-full overflow-hidden transition-all duration-200 hover:shadow-lg relative ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1' : ''} ${className}`}
       style={cardStyle}
+      onDoubleClick={handleDoubleClick}
     >
-      {renderCardContent()}
-      
-      {/* カードタイプインジケーター */}
-      <div className="absolute top-1 right-1 text-xs opacity-50">
-        {card.type === 'text' && '📝'}
-        {card.type === 'image' && '🖼️'}
-        {card.type === 'chart' && '📊'}
-        {card.type === 'list' && '📋'}
-        {card.type === 'link' && '🔗'}
-        {card.type === 'calendar' && '📅'}
-        {card.type === 'shape' && '🔲'}
-      </div>
+      {isEditing ? (
+        <textarea
+          ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="w-full h-full resize-none border-none outline-none bg-transparent p-2 text-sm"
+            style={textStyle}
+            placeholder="テキストを入力..."
+        />
+      ) : (
+        <div className="w-full h-full cursor-text p-2 text-sm" style={textStyle}>
+          {text || <span className="text-gray-400 italic">ダブルクリックして入力</span>}
+        </div>
+      )}
+      <div className="absolute top-1 right-1 text-xs opacity-50">🔲</div>
     </div>
   )
 }

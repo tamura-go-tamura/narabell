@@ -2,370 +2,120 @@
 
 ## 📋 サービス概要
 
-**Narabell**は、グリッド構造上でカード型オブジェクトをパズルのように組み合わせて配置できる革新的なウェブアプリケーションです。秩序ある構造と柔軟な創造性を両立し、視覚的に整理された情報管理とコラボレーションを実現します。
+**Narabell**は、グリッド構造上でシンプルな「図形カード (shape)」を配置し、PowerPointの図形と同様に直接テキスト入力できる最小MVPを提供するWebアプリケーションです。将来は複数コンテンツタイプへ段階的に拡張予定です。
 
 ---
 
 ## 🎯 コアコンセプト
-
 ```
-秩序ある構造 × 柔軟な創造性 = 新しいデジタルワークスペース
+秩序ある構造 × 最小限の要素 = 拡張しやすいワークスペース基盤
 ```
 
-### 独自性・差別化ポイント
-- 🎲 **グリッド構造 × 自由なカード操作**: 視覚的秩序と操作の自由度を両立
-- 🧩 **パズル感覚のUI体験**: 他に類を見ないニッチな価値提案
-- 📤 **多様な出力形式**: Markdown、CSV、PDF、PowerPoint、画像エクスポート対応
+### 現在のフォーカス (MVP)
+- 🧱 単一カードタイプ: 四角形 (shape)
+- ✍️ プレーンテキスト編集 (ダブルクリックで編集開始 / Cmd+Enter保存 / Esc取消)
+- 📐 グリッド + スナップ
+- 🧲 統一座標計算API (dragCoordinates.ts)
+- 🖱️ ドラッグ&ドロップ / 無限キャンバス / ズーム・パン
+
+将来的な追加 (保留中): 画像 / リスト / チャート / リンク / カレンダー 等
 
 ---
 
 ## 🏗️ システムアーキテクチャ
-
 ```mermaid
 graph TB
-    subgraph "Frontend Layer"
-        A[Next.js App Router]
-        B[React Components]
-        C[Grid Layout System]
-        D[Card Management]
-        E[Drag & Drop Interface]
-    end
-    
-    subgraph "State Management"
-        F[Zustand Store]
-        G[Board State]
-        H[Card State]
-        I[User Preferences]
-    end
-    
-    subgraph "UI/UX Layer"
-        J[Tailwind CSS v4]
-        K[shadcn/ui Components]
-        L[Framer Motion]
-        M[Responsive Grid]
-    end
-    
-    subgraph "Data Layer"
-        N[Local Storage]
-        O[Export Engines]
-        P[Import Handlers]
-    end
-    
-    subgraph "Export Modules"
-        Q[Markdown Exporter]
-        R[CSV Exporter]
-        S[PDF Generator]
-        T[Image Renderer]
-        U[PowerPoint Generator]
-    end
-    
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    
-    B --> F
-    F --> G
-    F --> H
-    F --> I
-    
-    B --> J
-    J --> K
-    K --> L
-    L --> M
-    
-    G --> N
-    H --> N
-    I --> N
-    
-    N --> O
-    O --> Q
-    O --> R
-    O --> S
-    O --> T
-    O --> U
+  A[Next.js App Router]
+  B[React Components]
+  C[Unified Drag Coordinates]
+  D[Card Management]
+  E[Drag & Drop]
+  F[Zustand Store]
+  G[Infinite Grid]
+
+  A --> B --> C --> D --> E
+  B --> F --> D
+  B --> G
 ```
 
 ---
 
-## 🔧 技術スタック詳細
-
-### フロントエンド Core
+## 🔧 技術スタック概要
 ```typescript
-// 主要技術構成
 Framework: Next.js 15+ (App Router)
-Language: TypeScript (Strict Mode)
+Language: TypeScript (Strict)
 Styling: Tailwind CSS v4
-UI Library: shadcn/ui
-Package Manager: pnpm
-```
-
-### インタラクション & レイアウト
-```typescript
-// グリッド & ドラッグ機能
-"react-grid-layout": "^1.4.0"        // レスポンシブグリッドシステム
-"@dnd-kit/core": "^6.0.0"            // モダンなドラッグ&ドロップ
-"framer-motion": "^10.0.0"           // スムーズアニメーション
-"react-resizable": "^3.0.0"          // カードリサイズ機能
-```
-
-### データ処理 & エクスポート
-```typescript
-// 出力エンジン
-"jspdf": "^2.5.0"                     // PDF生成
-"html2canvas": "^1.4.0"               // 画像エクスポート
-"papaparse": "^5.4.0"                 // CSV処理
-"remark": "^14.0.0"                   // Markdown処理
-"pptxgenjs": "^3.12.0"                // PowerPoint生成
-"zustand": "^4.4.0"                   // 軽量状態管理
+State: Zustand
+UI: shadcn/ui
+D&D: @dnd-kit/core
+Pkg: pnpm
 ```
 
 ---
 
-## 📱 ユーザーインターフェース構成
-
-### メインボードビュー
+## 📱 UI構成 (MVP)
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ 🔔 Narabell                      🔧 ⚙️ 📤 👤              │
-├─────────────────────────────────────────────────────────────┤
-│ 📋 ツールパレット                                            │
-│ ┌───┐ ┌───┐ ┌───┐ ┌───┐                                    │
-│ │📝 │ │📊 │ │🖼️ │ │📋 │ + カード追加                      │
-│ └───┘ └───┘ └───┘ └───┘                                    │
-├─────────────────────────────────────────────────────────────┤
-│                    🎯 メインワークスペース                    │
-│  ┌─────────┐  ┌───────────────┐  ┌─────────┐               │
-│  │  Card 1 │  │    Card 2     │  │  Card 3 │               │
-│  │  📝 Note│  │   📊 Chart    │  │  🖼️ Image│              │
-│  │         │  │               │  │         │               │
-│  └─────────┘  └───────────────┘  └─────────┘               │
-│                                                             │
-│  ┌─────────────────┐  ┌─────────┐                          │
-│  │     Card 4      │  │  Card 5 │                          │
-│  │   📋 List       │  │  📝 Todo│                         │
-│  │                 │  │         │                          │
-│  └─────────────────┘  └─────────┘                          │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────┐
+│ 🔔 Narabell (ToolPalette)     │  ← 四角形カードのみ
+├───────────────────────────────┤
+│  無限キャンバス (ズーム/パン) │
+│   ▭  ▭  ▭  ▭  ▭               │
+│   (ダブルクリックで編集)       │
+└───────────────────────────────┘
 ```
 
-### カード種別
-- **📝 テキストカード**: リッチテキスト編集対応
-- **📊 データカード**: チャート・グラフ表示
-- **🖼️ メディアカード**: 画像・動画埋め込み
-- **📋 リストカード**: チェックリスト・タスク管理
-- **🔗 リンクカード**: URL・参照リンク
-- **📅 カレンダーカード**: 日程・スケジュール
+### カード種別 (現状態)
+- ■ shape: 単純な四角形 + プレーンテキスト
 
 ---
 
-## 🔄 主要機能フロー
+## ✍️ カード編集 UX 仕様
+- ダブルクリック: 編集開始
+- フォーカスアウト / Cmd+Enter: 保存
+- Esc: 編集前に戻してキャンセル
+- 空テキスト時はプレースホルダー表示
 
-### 1. カード操作フロー
-```
-カード作成 → グリッド配置 → サイズ調整 → コンテンツ編集 → 配置調整
-     ↓              ↓           ↓            ↓           ↓
-  テンプレート選択  自動スナップ  リアルタイム反映  保存       エクスポート
-```
+---
 
-### 2. エクスポートフロー
-```
-ボード完成 → エクスポート形式選択 → データ変換 → ファイル生成 → ダウンロード
-     ↓              ↓                ↓          ↓           ↓
-  プレビュー   Markdown/CSV/PDF/PPTX  最適化処理   品質確認     完了
-```
-
-### 3. PowerPoint出力フロー
-```
-グリッドボード → スライド分割設定 → レイアウト最適化 → PPTX生成 → プレゼン準備
-     ↓              ↓               ↓              ↓           ↓
-  カード配置      自動スライド化    テンプレート適用   品質確認    発表可能
-   ・1カード = 1スライド
-   ・複数カード = 統合スライド
-   ・カスタムレイアウト
-```
-
-## 📊 PowerPoint出力仕様
-
-### スライド生成パターン
-- **📄 1カード1スライド**: 各カードを個別のスライドに変換
-- **🧩 グリッド統合スライド**: 複数カードを1つのスライドにレイアウト
-- **📑 テーマ別分割**: カードタイプごとにスライドをグループ化
-- **🎨 カスタムテンプレート**: 企業ブランドに合わせたデザイン適用
-
-### 対応コンテンツ
-```typescript
-// PowerPoint変換対応
-interface PowerPointExportOptions {
-  slideLayout: 'one-card-per-slide' | 'grid-layout' | 'theme-based'
-  template: 'default' | 'minimal' | 'corporate' | 'creative'
-  includeAnimations: boolean
-  exportNotes: boolean
-  resolution: 'standard' | 'hd' | '4k'
-}
-
-// カード種別別の変換ルール
-const cardToPptxMapping = {
-  text: 'テキストボックス + 書式適用',
-  chart: '埋め込みグラフ + データテーブル',
-  image: '高解像度画像 + キャプション',
-  list: '箇条書き + チェックボックス',
-  link: 'ハイパーリンク + プレビュー',
-  calendar: 'スケジュール表 + 日付ハイライト'
-}
+## 📊 データモデル (抜粋)
+```ts
+// types/board.ts
+export type CardType = 'shape'
+interface ShapeContent { text: string; fontSize: number; fontWeight: 'normal'|'bold'; textAlign: 'left'|'center'|'right'; color: string }
 ```
 
 ---
 
-## 📊 データ構造設計
+## 🚀 ロードマップ (要約)
+Phase 1 (完了中):
+- ✅ 単一shapeカード + テキスト編集
+- ✅ 座標計算統一API
+- ✅ 不要コード/旧カードタイプ削除
 
-### カードオブジェクトの概念
-Narабellのカードは、**PowerPointの図形オブジェクトやMiroのシェイプ**と同様の概念です：
+Phase 2 (予定):
+- 🔄 エクスポート機能再統合 (Markdown等)
+- 🎨 スタイル編集 (色/枠/影)
 
-```
-┌─────────────────────────────────────┐
-│ 🎨 カード = 四角形図形オブジェクト    │
-├─────────────────────────────────────┤
-│ • 基本形状: 四角形（角丸調整可能）    │
-│ • 内容: テキスト・画像・データ配置   │
-│ • スタイル: 色・枠線・影・透明度     │
-│ • 動作: ドラッグ・リサイズ・回転     │
-│ • 階層: 重ね順・グループ化対応       │
-└─────────────────────────────────────┘
-```
-
-### ボード構造
-```typescript
-interface Board {
-  id: string
-  title: string
-  description?: string
-  gridConfig: GridConfiguration
-  cards: Card[]
-  settings: BoardSettings
-  createdAt: Date
-  updatedAt: Date
-}
-
-interface Card {
-  id: string
-  type: CardType
-  position: GridPosition
-  size: GridSize
-  content: CardContent
-  style: CardStyle
-  metadata: CardMetadata
-}
-
-interface GridPosition {
-  x: number      // グリッド X座標
-  y: number      // グリッド Y座標
-  w: number      // 幅（グリッド単位）
-  h: number      // 高さ（グリッド単位）
-  z: number      // 重ね順（レイヤー）
-}
-
-interface CardStyle {
-  // 図形スタイル（PowerPoint/Miro風）
-  backgroundColor: string
-  borderColor: string
-  borderWidth: number
-  borderStyle: 'solid' | 'dashed' | 'dotted' | 'none'
-  borderRadius: number        // 角丸半径
-  opacity: number            // 透明度（0-1）
-  shadow: ShadowStyle
-  rotation: number           // 回転角度（度）
-}
-
-interface ShadowStyle {
-  enabled: boolean
-  color: string
-  offsetX: number
-  offsetY: number
-  blur: number
-  spread: number
-}
-```
+Phase 3+ (構想):
+- 🧩 複数カードタイプ再導入
+- 🤝 コラボレーション
+- 📤 PPTX / PDF / 画像エクスポート
 
 ---
 
-## 🚀 開発ロードマップ
-
-### Phase 1: コア機能 (MVP)
-- ✅ 基本グリッドシステム
-- ✅ カード作成・配置
-- ✅ ドラッグ&ドロップ
-- ✅ 基本的なカード種別
-
-### Phase 2: エクスポート機能
-- 📤 Markdown出力
-- 📤 CSV出力  
-- 📤 PDF生成
-- 📤 PowerPoint生成
-- 📤 画像エクスポート
-
-### Phase 3: 高度な機能
-- 🔄 アンドゥ・リドゥ
-- 💾 クラウド同期
-- 👥 コラボレーション
-- 🎨 テーマシステム
-
-### Phase 4: 拡張機能
-- 🔌 API連携
-- 📱 モバイル最適化
-- 🔍 検索・フィルター
-- 📈 アナリティクス
+## 🧪 テスト指針
+- 座標計算: `dragCoordinates.test.ts` の網羅維持
+- 追加仕様は失敗テスト→実装→リファクタのTDDサイクル
 
 ---
 
-## 🎨 デザインシステム
-
-### カラーパレット
-```css
-/* Primary Colors */
---primary-50: #f0f9ff
---primary-500: #3b82f6
---primary-900: #1e3a8a
-
-/* Grid Colors */
---grid-line: #e5e7eb
---grid-snap: #6366f1
---card-border: #d1d5db
---card-shadow: rgba(0, 0, 0, 0.1)
-```
-
-### グリッドシステム
-- **基本単位**: 20px × 20px
-- **最小カードサイズ**: 2×2 (40px × 40px)
-- **最大カードサイズ**: 12×8 (240px × 160px)
-- **レスポンシブブレークポイント**: sm(640px), md(768px), lg(1024px), xl(1280px)
+## 🔒 設計原則 (MVP適用版)
+1. 単一データモデルで拡張余地を確保
+2. 依存の最小化（座標計算は単一ファイル）
+3. UIとロジックの分離（store / lib / components）
+4. 将来の複数タイプ化を想定した最小インターフェース維持
 
 ---
 
-## 📈 成功指標 (KPI)
-
-### ユーザーエンゲージメント
-- 📊 月間アクティブユーザー数
-- ⏱️ 平均セッション時間
-- 🎯 カード作成数/ユーザー
-- 📤 エクスポート実行回数
-- 📊 PowerPoint生成回数/月
-
-### 技術指標
-- ⚡ ページロード時間 < 2秒
-- 🎭 Core Web Vitals スコア > 90
-- 📱 モバイル対応率 > 95%
-- 🛡️ エラー率 < 0.1%
-
----
-
-## 🔮 将来展望
-
-Narабellは、デジタルワークスペースの新しいスタンダードとなることを目指します。グリッド構造による秩序と自由な創造性の両立という独自のアプローチで、個人からチームまで幅広いユーザーの情報整理とコラボレーションを革新していきます。
-
-**Vision**: *パズルのような直感的操作で、誰もが美しく整理された情報空間を創造できる世界*
-
----
-
-*Generated on: 2025年9月7日*
-*Project: Narabell - Revolutionary Grid-Based Workspace*
+最終更新: 2025-09-14
+(本ドキュメントは単一 shape カード版に更新済み)

@@ -7,7 +7,7 @@ import { ZoomPanCanvas, TransformState } from '@/components/canvas/ZoomPanCanvas
 import { InfiniteGrid } from '@/components/canvas/InfiniteGrid'
 import { NewPreviewCard } from '@/components/canvas/NewPreviewCard'
 import { Card, GridPosition, CardType } from '@/types/board'
-import { calculateUnifiedDragPosition } from '@/lib/dragPreviewUtils'
+import { calculateDragPosition } from '@/lib/dragCoordinates'
 import { CardComponent } from '@/components/cards/CardComponent'
 
 interface NewGridBoardProps {
@@ -59,7 +59,7 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
       setIsDragging(true)
       setDragSourceType('palette')
       setDragPreview({
-        cardType: e.detail.cardType,
+        cardType: 'shape',
         position: { x: 0, y: 0 },
         isVisible: false,
         snapToGrid: isSnapToGrid
@@ -117,36 +117,28 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
     // リアルタイムでプレビュー位置を更新
     const currentDragPreview = dragPreviewRef.current
     if (currentDragPreview && canvasRef.current) {
-      // キャンバス要素の境界を取得
-      const canvasRect = canvasRef.current.getBoundingClientRect()
-      
-      // ドキュメント全体に対するマウス位置（スクリーン座標）
-      const screenMouseX = e.clientX
-      const screenMouseY = e.clientY
-      
-      // キャンバス相対のマウス位置を計算
-      const relativeMouseX = screenMouseX - canvasRect.left
-      const relativeMouseY = screenMouseY - canvasRect.top
-      
-      const dragPos = calculateUnifiedDragPosition(
-        relativeMouseX, 
-        relativeMouseY, 
-        cellSize, 
-        transformState, 
-        currentDragPreview.snapToGrid
-      )
+      // 新しいTDD実装の統一座標計算を使用
+      const dragResult = calculateDragPosition({
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        cellSize,
+        transform: transformState,
+        snapToGrid: isSnapToGrid
+      })
 
-      console.log('🎯 DragOver - updating position:', {
-        screenMouse: { x: screenMouseX, y: screenMouseY },
-        canvasRect: { left: canvasRect.left, top: canvasRect.top },
-        relativeMouse: { x: relativeMouseX, y: relativeMouseY },
-        calculatedScreenPos: dragPos.canvasPosition
+      console.log('🎯 DragOver - New unified API:', {
+        mouse: { x: e.clientX, y: e.clientY },
+        previewPos: dragResult.previewPosition,
+        gridPos: dragResult.gridPosition,
+        transformState,
+        isSnapToGrid
       })
 
       setDragPreview(prev => prev ? {
         ...prev,
-        position: dragPos.canvasPosition,
-        isVisible: true
+        position: dragResult.previewPosition,
+        isVisible: true,
+        snapToGrid: isSnapToGrid
       } : null)
     } else {
       setDragPreview(prev => prev ? { ...prev, isVisible: true } : null)
@@ -170,59 +162,70 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
       const transferData = e.dataTransfer.getData('application/json')
       const data = JSON.parse(transferData)
       
-      // キャンバス要素の境界を取得
-      const canvasRect = canvasRef.current.getBoundingClientRect()
-      
-      // ドキュメント全体に対するマウス位置（スクリーン座標）
-      const screenMouseX = e.clientX
-      const screenMouseY = e.clientY
-      
-      // キャンバス相対のマウス位置を計算
-      const relativeMouseX = screenMouseX - canvasRect.left
-      const relativeMouseY = screenMouseY - canvasRect.top
+      // 新しい統一座標計算APIを使用
+      const dragResult = calculateDragPosition({
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        cellSize,
+        transform: transformState,
+        snapToGrid: isSnapToGrid
+      })
       
       if (data.type === 'card-type') {
-        // 新しいカードの追加
-        const dragPos = calculateUnifiedDragPosition(
-          relativeMouseX, 
-          relativeMouseY, 
-          cellSize, 
-          transformState, 
-          dragPreview.snapToGrid
-        )
+        let gridPosition: GridPosition
         
-        const gridPosition: GridPosition = {
-          x: dragPos.gridPosition.x,
-          y: dragPos.gridPosition.y,
-          w: 2,
-          h: 2,
-          z: 0
+        if (isSnapToGrid && dragResult.gridPosition) {
+          // グリッドスナップ有効時：統一APIからグリッド位置を直接使用
+          gridPosition = dragResult.gridPosition
+          
+          console.log('🎯 Adding card (Grid Snap - Unified API):', {
+            cardType: data.cardType, 
+            previewPos: dragResult.previewPosition,
+            gridPosition
+          })
+        } else {
+          // グリッドスナップ無効時：プレビュー位置からキャンバス座標に変換してグリッド位置を計算
+          const canvasX = (dragResult.previewPosition.x - transformState.x) / transformState.scale
+          const canvasY = (dragResult.previewPosition.y - transformState.y) / transformState.scale
+          const gridX = Math.floor(canvasX / cellSize)
+          const gridY = Math.floor(canvasY / cellSize)
+          
+          gridPosition = {
+            x: gridX,
+            y: gridY,
+            w: 2,
+            h: 2,
+            z: 0
+          }
+          
+          console.log('🎯 Adding card (Free Position - Unified API):', {
+            cardType: data.cardType, 
+            previewPos: dragResult.previewPosition,
+            canvasPos: { x: canvasX, y: canvasY },
+            gridPosition
+          })
         }
         
-        console.log('🎯 Adding card:', data.cardType, gridPosition)
         addCard(data.cardType, gridPosition)
         
       } else if (data.type === 'existing-card') {
-        // 既存カードの移動
-        const dragPos = calculateUnifiedDragPosition(
-          relativeMouseX, 
-          relativeMouseY, 
-          cellSize, 
-          transformState, 
-          dragPreview.snapToGrid
-        )
+        // 既存カードの移動用：プレビュー位置からキャンバス座標に変換
+        const canvasX = (dragResult.previewPosition.x - transformState.x) / transformState.scale
+        const canvasY = (dragResult.previewPosition.y - transformState.y) / transformState.scale
+        const gridX = Math.floor(canvasX / cellSize)
+        const gridY = Math.floor(canvasY / cellSize)
         
         const card = currentBoard.cards.find(c => c.id === data.cardId)
         if (card) {
           const gridPosition: GridPosition = {
-            x: dragPos.gridPosition.x,
-            y: dragPos.gridPosition.y,
+            x: gridX,
+            y: gridY,
             w: card.size.w,
             h: card.size.h,
             z: card.position.z
           }
           
-          console.log('🎯 Moving card:', data.cardId, gridPosition)
+          console.log('🎯 Moving card (Unified API):', data.cardId, gridPosition)
           moveCard(data.cardId, gridPosition)
         }
       }
@@ -351,18 +354,18 @@ export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className = '' }) =>
       
       {/* ドラッグプレビュー */}
       {dragPreview && dragPreview.isVisible && (() => {
-        console.log('🎯 Rendering preview:', {
+        console.log('🎯 Rendering preview (TDD):', {
           dragPreview,
-          centerPosition: dragPreview.position,
+          leftTopPosition: dragPreview.position,
           cellSize,
           transformState
         })
         return (
           <NewPreviewCard
-            cardType={dragPreview.cardType}
-            position={dragPreview.position} // カードの中央座標
-            cellSize={cellSize} // ベースセルサイズ
-            scale={transformState.scale} // ズームスケール
+            cardType={'shape'}
+            position={dragPreview.position}
+            cellSize={cellSize}
+            scale={transformState.scale}
             snapToGrid={false}
           />
         )

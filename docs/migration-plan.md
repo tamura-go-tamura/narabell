@@ -115,13 +115,12 @@ const normalizePosition = (position: Position): GridPosition => {
 - マイナス座標完全対応
 - プレビュー機能統合
 
-### Phase 4: GridBoard移行
-**期間**: 2-3日
-**作業内容**:
+### Phase 4: GridBoard移行 (完了)
+旧 `GridBoard.tsx` / `GridBoardNew.tsx` は削除。現在は `NewGridBoard.tsx` が統一API (`dragCoordinates.ts`) を利用。
 
 ```typescript
-// 新しいGridBoard.tsx
-export const GridBoard: React.FC<GridBoardProps> = ({ className }) => {
+// 新しいGridBoard (最終形)
+export const NewGridBoard: React.FC<NewGridBoardProps> = ({ className }) => {
   const { currentBoard, cards } = useBoardStore()
   
   return (
@@ -219,3 +218,6 @@ export const GridBoard: React.FC<GridBoardProps> = ({ className }) => {
 **策定日**: 2025年9月7日  
 **責任者**: 開発チーム  
 **レビュー予定**: 各フェーズ完了時
+
+### 追加メモ (2025-09-13)
+複数カードタイプは一時停止し、`shape` 単一に統一。座標/スナップ安定化を優先し、他タイプは後続 Phase で再導入予定。
