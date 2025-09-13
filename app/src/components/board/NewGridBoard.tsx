@@ -199,8 +199,9 @@ export const NewGridBoard: React.FC = () => {
 
   return (
     <div className="relative w-full h-full bg-white select-none overflow-hidden touch-none">
+      <InfiniteGrid cellSize={CELL_SIZE} viewportX={transform.x} viewportY={transform.y} viewportScale={transform.scale} className="z-0" />
       <ShapeToolPalette onCreateShape={(k) => addShape(k)} className="absolute left-4 top-1/2 -translate-y-1/2 z-50" />
-      <ZoomPanCanvas onTransformChange={setTransform} className="w-full h-full">
+      <ZoomPanCanvas onTransformChange={setTransform} className="w-full h-full z-10 relative">
         <div
           className="relative"
           style={{ width: VIRTUAL_CANVAS.width, height: VIRTUAL_CANVAS.height }}
@@ -210,7 +211,7 @@ export const NewGridBoard: React.FC = () => {
           onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-shape-kind')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' } }}
           onDrop={handleDrop}
         >
-          <InfiniteGrid cellSize={CELL_SIZE} className="pointer-events-none" />
+          {/* 内側のグリッドは削除（外側オーバーレイで無限表示） */}
           {shapes.map(shape => {
             const baseClasses = 'absolute bg-white shadow-sm flex items-center justify-center font-medium text-gray-700 text-sm select-none'
             const shapeClass = shape.kind === 'circle' ? 'rounded-full border border-gray-400' : 'rounded-md border border-gray-400'
