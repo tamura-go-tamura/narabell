@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef } from 'react'
 import { InfiniteGrid } from '@/components/canvas/InfiniteGrid'
 import { ZoomPanCanvas, TransformState } from '@/components/canvas/ZoomPanCanvas'
+import { ShapeToolPalette, ShapeKind } from './ShapeToolPalette'
 
 // グリッドセルサイズ（InfiniteGrid と合わせる）
 const CELL_SIZE = 40
@@ -161,8 +162,44 @@ export const NewGridBoard: React.FC = () => {
     return 'grab'
   }
 
+  // 図形追加 (クリック: 中央 / ドラッグ: 任意位置)
+  const addShape = useCallback((kind: ShapeKind, dropPos?: { x: number; y: number }) => {
+    setShapes(prev => {
+      const nextZ = prev.reduce((m, s) => Math.max(m, s.z), 0) + 1
+      const baseSize = kind === 'circle' ? 160 : 240
+      const w = kind === 'circle' ? 160 : 240
+      const h = kind === 'circle' ? 160 : 160
+      let x: number
+      let y: number
+      if (dropPos) {
+        x = quantizePos(dropPos.x - w / 2)
+        y = quantizePos(dropPos.y - h / 2)
+      } else {
+        // キャンバス中央 (現在のスクリーン中央をキャンバス座標へ)
+        const centerX = (-transform.x + window.innerWidth / 2) / transform.scale
+        const centerY = (-transform.y + window.innerHeight / 2) / transform.scale
+        x = quantizePos(centerX - w / 2)
+        y = quantizePos(centerY - h / 2)
+      }
+      const id = `${kind}-${Date.now()}`
+      const label = kind === 'rect' ? '四角' : '丸'
+      return [...prev, { id, kind, x, y, w: baseSize, h: h, label, z: nextZ }]
+    })
+  }, [transform])
+
+  // ドロップ受け入れ
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    const kind = e.dataTransfer.getData('application/x-shape-kind') as ShapeKind | ''
+    if (!kind) return
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+    const cx = (e.clientX - rect.left - transform.x) / transform.scale
+    const cy = (e.clientY - rect.top - transform.y) / transform.scale
+    addShape(kind, { x: cx, y: cy })
+  }, [addShape, transform])
+
   return (
     <div className="relative w-full h-full bg-white select-none overflow-hidden touch-none">
+      <ShapeToolPalette onCreateShape={(k) => addShape(k)} className="absolute left-4 top-1/2 -translate-y-1/2 z-50" />
       <ZoomPanCanvas onTransformChange={setTransform} className="w-full h-full">
         <div
           className="relative"
@@ -170,6 +207,8 @@ export const NewGridBoard: React.FC = () => {
           onPointerMove={handleWrapperPointerMove}
           onPointerUp={endInteractions}
           onPointerLeave={endInteractions}
+          onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-shape-kind')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' } }}
+          onDrop={handleDrop}
         >
           <InfiniteGrid cellSize={CELL_SIZE} className="pointer-events-none" />
           {shapes.map(shape => {
