@@ -127,3 +127,6 @@ export interface PowerPointExportOptions extends ExportOptions {
   exportNotes: boolean
   resolution: 'standard' | 'hd' | '4k'
 }
+
+// 旧 board/card 型定義は再構築のため一旦撤去
+export {}

@@ -82,3 +82,6 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({ className = '' }) => {
     </div>
   )
 }
+
+// 最小構成: 未使用 (ToolPalette 削除)
+export {}

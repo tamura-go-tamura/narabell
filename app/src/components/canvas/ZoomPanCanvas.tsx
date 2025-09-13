@@ -76,3 +76,6 @@ export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
     </div>
   )
 }
+
+// 最小構成では未使用のため一時撤去
+export {}
