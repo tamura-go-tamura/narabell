@@ -4,179 +4,84 @@ import React, { useState } from 'react'
 import { CardType } from '@/types/board'
 import { useBoardStore } from '@/stores/boardStore'
 
-interface ToolPaletteProps {
-  className?: string
-}
+interface ToolPaletteProps { className?: string }
 
 export const ToolPalette: React.FC<ToolPaletteProps> = ({ className = '' }) => {
   const [isExpanded, setIsExpanded] = useState(true)
-  const { addCard, currentBoard } = useBoardStore()
+  const [draggedType, setDraggedType] = useState<CardType | null>(null)
+  const { currentBoard, isGridVisible, toggleGrid, isSnapToGrid, toggleSnapToGrid } = useBoardStore()
 
-  const cardTypes: Array<{
-    type: CardType
-    icon: string
-    label: string
-    description: string
-  }> = [
-    {
-      type: 'text',
-      icon: '📝',
-      label: 'テキスト',
-      description: 'テキストカードを追加'
-    },
-    {
-      type: 'image',
-      icon: '🖼️',
-      label: '画像',
-      description: '画像カードを追加'
-    },
-    {
-      type: 'list',
-      icon: '📋',
-      label: 'リスト',
-      description: 'チェックリストを追加'
-    },
-    {
-      type: 'chart',
-      icon: '📊',
-      label: 'チャート',
-      description: 'グラフ・チャートを追加'
-    },
-    {
-      type: 'link',
-      icon: '🔗',
-      label: 'リンク',
-      description: 'リンクカードを追加'
-    },
-    {
-      type: 'calendar',
-      icon: '📅',
-      label: 'カレンダー',
-      description: 'カレンダーカードを追加'
-    },
-    {
-      type: 'shape',
-      icon: '🔲',
-      label: '図形',
-      description: '図形カードを追加'
-    }
+  const cardTypes: Array<{ type: CardType; icon: string; label: string; description: string }> = [
+    { type: 'shape', icon: '▭', label: '四角', description: '基本図形（四角）を追加' }
   ]
 
-  const handleAddCard = (type: CardType) => {
-    if (!currentBoard) return
+  const handleDragStart = (e: React.DragEvent, cardType: CardType) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'card-type', cardType }))
+    e.dataTransfer.effectAllowed = 'copy'
+    setDraggedType(cardType)
+    window.dispatchEvent(new CustomEvent('cardDragStart', { detail: { cardType } }))
+    const dragImage = document.createElement('div')
+    dragImage.innerHTML = `<div style="padding:6px 10px;background:white;border:2px solid #3b82f6;border-radius:6px;font-size:12px;display:flex;gap:6px;align-items:center;">${cardTypes[0].icon}<span>${cardTypes[0].label}</span></div>`
+    dragImage.style.position = 'absolute'; dragImage.style.top = '-1000px'; document.body.appendChild(dragImage)
+    e.dataTransfer.setDragImage(dragImage, 40, 20)
+    setTimeout(() => { document.body.removeChild(dragImage) }, 0)
+  }
 
-    // 新しいカードの位置を決定（空いている場所を探す）
-    const findEmptyPosition = () => {
-      const existingPositions = currentBoard.cards.map(card => ({
-        x: card.position.x,
-        y: card.position.y,
-        w: card.size.w,
-        h: card.size.h
-      }))
-
-      // グリッドの各位置をチェック
-      for (let y = 0; y < 20; y++) {
-        for (let x = 0; x < currentBoard.gridConfig.cols; x++) {
-          const position = { x, y, w: 2, h: 2 }
-          
-          // この位置が既存のカードと重複していないかチェック
-          const isOccupied = existingPositions.some(existing => 
-            x < existing.x + existing.w &&
-            x + position.w > existing.x &&
-            y < existing.y + existing.h &&
-            y + position.h > existing.y
-          )
-
-          if (!isOccupied && x + position.w <= currentBoard.gridConfig.cols) {
-            return { x, y, w: position.w, h: position.h, z: 0 }
-          }
-        }
-      }
-
-      // 空いている場所がない場合は右下に配置
-      return { x: 0, y: Math.max(...existingPositions.map(p => p.y + p.h), 0), w: 2, h: 2, z: 0 }
-    }
-
-    const position = findEmptyPosition()
-    addCard(type, position)
+  const handleDragEnd = () => {
+    setDraggedType(null)
+    window.dispatchEvent(new CustomEvent('cardDragEnd'))
   }
 
   return (
-    <div className={`fixed top-4 left-4 z-10 ${className}`}>
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-        {/* ヘッダー */}
+    <div className={`fixed top-4 left-4 z-20 ${className}`}>
+      <div className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
         <div className="flex items-center justify-between p-3 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <span className="text-lg">🔔</span>
-            <h3 className="font-semibold text-gray-800">Narabell</h3>
-          </div>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none"
-          >
-            {isExpanded ? '▼' : '▶'}
-          </button>
+          <div className="flex items-center space-x-2"><span className="text-lg">🔔</span><h3 className="font-semibold text-gray-800 text-sm">Narabell</h3></div>
+          <button onClick={() => setIsExpanded(!isExpanded)} className="text-gray-500 hover:text-gray-700">{isExpanded ? '◀' : '▶'}</button>
         </div>
-
-        {/* ツールパレット */}
         {isExpanded && (
-          <div className="p-3">
-            <div className="text-xs font-medium text-gray-600 mb-2">
-              カードを追加
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {cardTypes.map((cardType) => (
-                <button
-                  key={cardType.type}
-                  onClick={() => handleAddCard(cardType.type)}
-                  disabled={!currentBoard}
-                  className={`
-                    p-2 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
-                    transition-all duration-200 group
-                    ${!currentBoard ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                  `}
-                  title={cardType.description}
-                >
-                  <div className="text-xl mb-1">{cardType.icon}</div>
-                  <div className="text-xs text-gray-600 group-hover:text-blue-700">
-                    {cardType.label}
+          <div className="p-3 w-60">
+            <div className="text-xs font-medium text-gray-600 mb-3">カードツール</div>
+            <div className="space-y-2">
+              {cardTypes.map(ct => (
+                <div key={ct.type} draggable onDragStart={(e) => handleDragStart(e, ct.type)} onDragEnd={handleDragEnd}
+                  className={`flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 cursor-move transition-all ${!currentBoard ? 'opacity-50 cursor-not-allowed' : ''} ${draggedType === ct.type ? 'opacity-50 scale-95' : ''}`}
+                  title={`${ct.description} - ドラッグして配置`}>
+                  <div className="text-xl mr-3">{ct.icon}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-gray-800">{ct.label}</div>
+                    <div className="text-xs text-gray-500">ドラッグ&ドロップで配置</div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
-
-            {/* 追加情報 */}
-            {!currentBoard && (
-              <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-                カードを追加するには、まずボードを作成してください
+            {currentBoard && (
+              <div className="mt-4 pt-3 border-t border-gray-200">
+                <div className="text-xs font-medium text-gray-600 mb-3">表示設定</div>
+                <div className="space-y-2">
+                  <button onClick={toggleGrid} className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg border ${isGridVisible ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}> <span className="flex items-center"><span className="mr-2">📐</span>グリッド表示</span><span className={`text-xs ${isGridVisible ? 'text-blue-600' : 'text-gray-400'}`}>{isGridVisible ? 'ON' : 'OFF'}</span></button>
+                  <button onClick={toggleSnapToGrid} className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg border ${isSnapToGrid ? 'bg-green-100 border-green-300 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}> <span className="flex items-center"><span className="mr-2">🧲</span>グリッドスナップ</span><span className={`text-xs ${isSnapToGrid ? 'text-green-600' : 'text-gray-400'}`}>{isSnapToGrid ? 'ON' : 'OFF'}</span></button>
+                </div>
               </div>
             )}
+            {!currentBoard && (<div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700">ボードを作成してください</div>)}
           </div>
         )}
-
-        {/* 最小化時のクイックアクセス */}
         {!isExpanded && (
           <div className="p-2 flex space-x-1">
-            {cardTypes.slice(0, 3).map((cardType) => (
-              <button
-                key={cardType.type}
-                onClick={() => handleAddCard(cardType.type)}
-                disabled={!currentBoard}
-                className={`
-                  w-8 h-8 rounded border border-gray-200 hover:border-blue-300 hover:bg-blue-50
-                  focus:outline-none focus:ring-1 focus:ring-blue-500
-                  ${!currentBoard ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                `}
-                title={cardType.description}
-              >
-                <span className="text-sm">{cardType.icon}</span>
-              </button>
+            {cardTypes.map(ct => (
+              <div key={ct.type} draggable onDragStart={(e) => handleDragStart(e, ct.type)} onDragEnd={handleDragEnd}
+                className={`w-8 h-8 rounded border border-gray-200 hover:border-blue-300 hover:bg-blue-50 ${!currentBoard ? 'opacity-50 cursor-not-allowed' : 'cursor-move'} ${draggedType === ct.type ? 'opacity-50 scale-95' : ''} flex items-center justify-center`}
+                title={`${ct.description} - ドラッグして配置`}>
+                <span className="text-sm">{ct.icon}</span>
+              </div>
             ))}
-            <div className="text-gray-400 flex items-center text-xs">...</div>
           </div>
         )}
       </div>
     </div>
   )
 }
+
+// 最小構成: 未使用 (ToolPalette 削除)
+export {}

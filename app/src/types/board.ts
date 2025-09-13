@@ -1,25 +1,24 @@
-// Narabell - Board and Card Type Definitions
+// Narabell - Simplified Board and Card Type Definitions (Single Card Type: shape)
 
-export type CardType = 'text' | 'image' | 'chart' | 'list' | 'link' | 'calendar' | 'shape'
+export type CardType = 'shape'
 
 export interface GridPosition {
-  x: number      // グリッド X座標
-  y: number      // グリッド Y座標
-  w: number      // 幅（グリッド単位）
-  h: number      // 高さ（グリッド単位）
-  z: number      // 重ね順（レイヤー）
+  x: number
+  y: number
+  w: number
+  h: number
+  z: number
 }
 
 export interface CardStyle {
-  // 図形スタイル（PowerPoint/Miro風）
   backgroundColor: string
   borderColor: string
   borderWidth: number
   borderStyle: 'solid' | 'dashed' | 'dotted' | 'none'
-  borderRadius: number        // 角丸半径
-  opacity: number            // 透明度（0-1）
+  borderRadius: number
+  opacity: number
   shadow: ShadowStyle
-  rotation: number           // 回転角度（度）
+  rotation: number
 }
 
 export interface ShadowStyle {
@@ -31,125 +30,18 @@ export interface ShadowStyle {
   spread: number
 }
 
-// カード内容（タイプ別）
-export interface CardContent {
-  type: CardType
-  data: TextContent | ImageContent | ChartContent | ListContent | LinkContent | CalendarContent | ShapeContent
-}
-
-// 📝 テキストカード
-export interface TextContent {
+// 単一カード (PowerPoint図形風) のシンプルなテキスト内容
+export interface ShapeContent {
   text: string
   fontSize: number
-  fontFamily: string
-  fontWeight: 'normal' | 'bold' | '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900'
+  fontWeight: 'normal' | 'bold'
+  textAlign: 'left' | 'center' | 'right'
   color: string
-  textAlign: 'left' | 'center' | 'right' | 'justify'
-  verticalAlign: 'top' | 'middle' | 'bottom'
-  lineHeight: number
-  letterSpacing: number
 }
 
-// 🖼️ 画像カード
-export interface ImageContent {
-  src: string
-  alt: string
-  fit: 'cover' | 'contain' | 'fill' | 'scale-down'
-  alignment: 'center' | 'top' | 'bottom' | 'left' | 'right'
-  caption?: string
-  filters?: {
-    brightness: number    // 0-200
-    contrast: number      // 0-200
-    saturation: number    // 0-200
-    blur: number         // 0-10
-  }
-}
-
-// 📊 チャートカード
-export interface ChartContent {
-  chartType: 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter'
-  data: ChartData
-  options: ChartOptions
-  title?: string
-}
-
-export interface ChartData {
-  labels: string[]
-  datasets: Array<{
-    label: string
-    data: number[]
-    backgroundColor?: string | string[]
-    borderColor?: string | string[]
-    borderWidth?: number
-  }>
-}
-
-export interface ChartOptions {
-  responsive: boolean
-  maintainAspectRatio: boolean
-  plugins?: {
-    legend?: {
-      display: boolean
-      position?: 'top' | 'bottom' | 'left' | 'right'
-    }
-    title?: {
-      display: boolean
-      text?: string
-    }
-  }
-}
-
-// 📋 リストカード
-export interface ListContent {
-  items: ListItem[]
-  listStyle: 'checklist' | 'numbered' | 'bulleted'
-  allowReorder: boolean
-}
-
-export interface ListItem {
-  id: string
-  text: string
-  checked: boolean
-  completed: boolean
-  priority: 'low' | 'medium' | 'high'
-}
-
-// 🔗 リンクカード
-export interface LinkContent {
-  url: string
-  title: string
-  description?: string
-  thumbnail?: string
-  favicon?: string
-  showPreview: boolean
-}
-
-// 📅 カレンダーカード
-export interface CalendarContent {
-  events: CalendarEvent[]
-  viewMode: 'month' | 'week' | 'day'
-  highlightDates: string[]
-}
-
-export interface CalendarEvent {
-  id: string
-  title: string
-  date: string
-  startTime?: string
-  endTime?: string
-  description?: string
-  color?: string
-}
-
-// 🔲 図形カード
-export interface ShapeContent {
-  shape: 'rectangle' | 'circle' | 'triangle' | 'diamond' | 'arrow' | 'star'
-  fillPattern: 'solid' | 'gradient' | 'pattern' | 'none'
-  gradient?: {
-    type: 'linear' | 'radial'
-    colors: string[]
-    direction: number
-  }
+export interface CardContent {
+  type: 'shape'
+  data: ShapeContent
 }
 
 export interface Card {
@@ -163,12 +55,12 @@ export interface Card {
 }
 
 export interface GridSize {
-  w: number      // 幅（グリッド単位）
-  h: number      // 高さ（グリッド単位）
-  minW?: number  // 最小幅
-  minH?: number  // 最小高さ
-  maxW?: number  // 最大幅
-  maxH?: number  // 最大高さ
+  w: number
+  h: number
+  minW?: number
+  minH?: number
+  maxW?: number
+  maxH?: number
 }
 
 export interface CardMetadata {
@@ -177,14 +69,15 @@ export interface CardMetadata {
   version: number
   tags?: string[]
   notes?: string
+  isEditing?: boolean
 }
 
 export interface GridConfiguration {
-  cols: number           // カラム数
-  rowHeight: number      // 行の高さ
-  margin: [number, number] // マージン [x, y]
-  padding: [number, number] // パディング [x, y]
-  containerPadding: [number, number] // コンテナパディング [x, y]
+  cols: number
+  rowHeight: number
+  margin: [number, number]
+  padding: [number, number]
+  containerPadding: [number, number]
   breakpoints: {
     lg: number
     md: number
@@ -219,25 +112,7 @@ export interface Board {
   updatedAt: Date
 }
 
-// カード操作仕様
-export interface CardInteraction {
-  // 基本操作
-  draggable: boolean          // ドラッグ移動
-  resizable: boolean          // サイズ変更
-  rotatable: boolean          // 回転操作
-  selectable: boolean         // 選択可能
-  
-  // 高度な操作
-  groupable: boolean          // グループ化可能
-  copyable: boolean           // コピー&ペースト
-  lockable: boolean           // 位置・編集ロック
-  
-  // グリッド動作
-  snapToGrid: boolean         // グリッドスナップ
-  gridAlignment: 'corner' | 'center' | 'edge'
-}
-
-// エクスポート設定
+// Export-related (kept for future, though only one type now)
 export interface ExportOptions {
   format: 'markdown' | 'csv' | 'pdf' | 'pptx' | 'image'
   quality: 'low' | 'medium' | 'high'
@@ -252,3 +127,6 @@ export interface PowerPointExportOptions extends ExportOptions {
   exportNotes: boolean
   resolution: 'standard' | 'hd' | '4k'
 }
+
+// 旧 board/card 型定義は再構築のため一旦撤去
+export {}
