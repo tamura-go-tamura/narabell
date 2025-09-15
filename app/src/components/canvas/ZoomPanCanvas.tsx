@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useRef, useEffect } from 'react'
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
 
 export interface TransformState {
@@ -13,25 +13,34 @@ interface ZoomPanCanvasProps {
   children: React.ReactNode
   onTransformChange?: (state: TransformState) => void
   className?: string
+  onApi?: (api: { zoomIn: () => void; zoomOut: () => void; reset: () => void }) => void
 }
 
 export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
   children,
   onTransformChange,
-  className = ''
+  className = '',
+  onApi
 }) => {
   const transformRef = useRef<ReactZoomPanPinchRef>(null)
   
-  // 変換状態変更時のコールバック
   const handleTransformed = useCallback((ref: ReactZoomPanPinchRef, state: any) => {
     const transformState: TransformState = {
       x: state.positionX,
       y: state.positionY,
       scale: state.scale
     }
-    
     onTransformChange?.(transformState)
   }, [onTransformChange])
+
+  useEffect(() => {
+    if (!onApi || !transformRef.current) return
+    onApi({
+      zoomIn: () => transformRef.current?.zoomIn?.(),
+      zoomOut: () => transformRef.current?.zoomOut?.(),
+      reset: () => transformRef.current?.resetTransform?.()
+    })
+  }, [onApi])
 
   return (
     <div className={`relative w-full h-full ${className}`}>
@@ -77,5 +86,4 @@ export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
   )
 }
 
-// 最小構成では未使用のため一時撤去
 export {}

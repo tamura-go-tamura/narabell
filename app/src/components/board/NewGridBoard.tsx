@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { InfiniteGrid } from '@/components/canvas/InfiniteGrid'
 import { ZoomPanCanvas, TransformState } from '@/components/canvas/ZoomPanCanvas'
 import { ShapeToolPalette, ShapeKind } from './ShapeToolPalette'
-import { Shape, DEFAULT_SIZES } from '@/types/shape'
+import { Shape, DEFAULT_SIZES, DEFAULT_STYLE } from '@/types/shape'
 
 // グリッドセルサイズ（InfiniteGrid と合わせる）
 const CELL_SIZE = 40
@@ -30,9 +30,13 @@ export const NewGridBoard: React.FC = () => {
   const [hover, setHover] = useState<{ id: string | null; dir: HandleDir | null }>({ id: null, dir: null })
   const [dragPreview, setDragPreview] = useState<null | { kind: ShapeKind; cx: number; cy: number }>(null)
   const [dragCreatingKind, setDragCreatingKind] = useState<ShapeKind | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [panelPos, setPanelPos] = useState<{ x: number; y: number } | null>(null)
   const resizeRef = useRef<ResizeSession | null>(null)
   const moveRef = useRef<MoveSession | null>(null)
   const shapeRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const zoomApiRef = useRef<any>(null)
 
   const setShapeRef = (id: string) => (el: HTMLDivElement | null) => { shapeRefs.current[id] = el }
   const findShape = (id: string) => shapes.find(s => s.id === id)!
@@ -90,6 +94,7 @@ export const NewGridBoard: React.FC = () => {
 
   const handleShapePointerDown = useCallback((e: React.PointerEvent, shapeId: string) => {
     bringToFront(shapeId)
+    setSelectedId(shapeId)
     const dir = detectEdge(e, shapeId)
     dir ? startResize(e, shapeId, dir) : startMove(e, shapeId)
   }, [detectEdge, startResize, startMove, bringToFront])
@@ -164,7 +169,7 @@ export const NewGridBoard: React.FC = () => {
       const cy = dropPos ? dropPos.y : (-transform.y + window.innerHeight / 2) / transform.scale
       const x = quantizePos(cx - w / 2)
       const y = quantizePos(cy - h / 2)
-      return [...prev, { id: `${kind}-${Date.now()}`, kind, x, y, w, h, label: kind === 'rect' ? '四角' : '丸', z: nextZ }]
+      return [...prev, { id: `${kind}-${Date.now()}`, kind, x, y, w, h, label: kind === 'rect' ? '四角' : '丸', z: nextZ, ...DEFAULT_STYLE }]
     })
   }, [transform])
 
@@ -197,8 +202,125 @@ export const NewGridBoard: React.FC = () => {
     if (!(e.currentTarget as Node).contains(e.relatedTarget as Node)) setDragPreview(null)
   }, [])
 
+  const updateSelectedStyle = (patch: Partial<Shape>) => {
+    if (!selectedId) return
+    setShapes(prev => prev.map(s => s.id === selectedId ? { ...s, ...patch } : s))
+  }
+
+  const updatePanelPos = useCallback(() => {
+    if (!selectedId) { setPanelPos(null); return }
+    const el = shapeRefs.current[selectedId]
+    const root = rootRef.current
+    if (!el || !root) return
+    const r = el.getBoundingClientRect()
+    const rr = root.getBoundingClientRect()
+    const x = r.right - rr.left + 12 // shape右側少し外
+    const y = r.top - rr.top // 上揃え（必要なら + (r.height/2 - 16) で中央）
+    setPanelPos({ x, y })
+  }, [selectedId])
+
+  useEffect(() => { updatePanelPos() }, [updatePanelPos, transform, shapes])
+  useEffect(() => {
+    const onResize = () => updatePanelPos()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [updatePanelPos])
+
   return (
-    <div className="relative w-full h-full bg-white select-none overflow-hidden touch-none">
+    <div ref={rootRef} className="relative w-full h-full bg-white select-none overflow-hidden touch-none">
+      {/* Style panel (now positioned near selected shape) */}
+      {selectedId && panelPos && (() => {
+        const s = shapes.find(sh => sh.id === selectedId)
+        if (!s) return null
+        // Simple hex -> rgb helper for opacity gradient
+        const toRgb = (hex: string) => {
+          let h = hex.replace('#','')
+          if (h.length === 3) h = h.split('').map(c=>c+c).join('')
+          const r = parseInt(h.slice(0,2),16); const g = parseInt(h.slice(2,4),16); const b = parseInt(h.slice(4,6),16)
+          return { r, g, b }
+        }
+        const fillColor = s.fill || '#ffffff'
+        const { r, g, b } = toRgb(fillColor)
+        const presets = ['#FFFFFF','#FEF08A','#BFDBFE','#C7D2FE','#FBCFE8','#DCFCE7','#FEE2E2','#E5E7EB']
+        return (
+          <div
+            className="absolute z-50 w-48 bg-white/70 backdrop-blur-xl px-3 py-2 rounded-xl shadow-xl border border-white/60 ring-1 ring-black/5 text-[11px] flex flex-col gap-2"
+            style={{ left: panelPos.x, top: panelPos.y }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between -mb-1">
+              <span className="font-medium text-gray-700 tracking-wide">Style</span>
+              <button aria-label="close" onClick={() => setSelectedId(null)} className="text-gray-400 hover:text-gray-600 transition-colors leading-none">×</button>
+            </div>
+            {/* Fill */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-gray-500">Fill</span>
+              <button
+                title="Fill color"
+                onClick={() => {
+                  const el = document.getElementById('fill-input-'+s.id) as HTMLInputElement | null; el?.click()
+                }}
+                className="relative w-7 h-7 rounded-full ring-1 ring-black/10 shadow-sm overflow-hidden flex items-center justify-center"
+                style={{ background: s.fill || '#ffffff' }}
+              >
+                <span className="sr-only">Pick fill color</span>
+              </button>
+              <input id={'fill-input-'+s.id} type="color" value={s.fill || '#ffffff'} onChange={(e) => updateSelectedStyle({ fill: e.target.value })} className="hidden" />
+            </div>
+            {/* Stroke & width */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-gray-500">Stroke</span>
+              <button
+                title="Stroke color"
+                onClick={() => { const el = document.getElementById('stroke-input-'+s.id) as HTMLInputElement | null; el?.click() }}
+                className="relative w-7 h-7 rounded-full ring-1 ring-black/10 shadow-sm overflow-hidden flex items-center justify-center"
+                style={{ background: s.stroke || '#555555' }}
+              >
+                <span className="sr-only">Pick stroke color</span>
+              </button>
+              <input id={'stroke-input-'+s.id} type="color" value={s.stroke || '#555555'} onChange={(e) => updateSelectedStyle({ stroke: e.target.value })} className="hidden" />
+              <input
+                aria-label="stroke width"
+                type="number"
+                min={0}
+                max={12}
+                value={s.strokeWidth ?? 2}
+                onChange={(e) => updateSelectedStyle({ strokeWidth: Number(e.target.value) })}
+                className="w-12 px-1 py-0.5 border border-gray-200 rounded text-[11px] text-center bg-white/70 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+            {/* Preset swatches */}
+            <div className="flex flex-wrap gap-1 mt-1">
+              {presets.map(c => (
+                <button
+                  key={c}
+                  title={c}
+                  onClick={() => updateSelectedStyle({ fill: c })}
+                  className={`w-5 h-5 rounded ring-1 ring-black/10 hover:ring-blue-400 transition-shadow ${s.fill === c ? 'outline outline-[2px] outline-blue-500/60' : ''}`}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
+            {/* Opacity */}
+            <div className="flex flex-col gap-1 mt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Opacity</span>
+                <span className="tabular-nums w-10 text-right text-gray-600">{Math.round((s.opacity ?? 1) * 100)}%</span>
+              </div>
+              <div className="h-1.5 w-full rounded bg-gradient-to-r" style={{ background: `linear-gradient(to right, rgba(${r},${g},${b},0) , rgba(${r},${g},${b},1))` }} />
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={s.opacity ?? 1}
+                onChange={(e) => updateSelectedStyle({ opacity: Number(e.target.value) })}
+                className="w-full accent-blue-500"
+              />
+            </div>
+          </div>
+        )
+      })()}
       <InfiniteGrid cellSize={CELL_SIZE} viewportX={transform.x} viewportY={transform.y} viewportScale={transform.scale} className="z-0" />
       <ShapeToolPalette
         onCreateShape={(k) => addShape(k)}
@@ -206,7 +328,7 @@ export const NewGridBoard: React.FC = () => {
         onDragShapeEnd={() => { setDragCreatingKind(null); setDragPreview(null) }}
         className="absolute left-4 top-1/2 -translate-y-1/2 z-50"
       />
-      <ZoomPanCanvas onTransformChange={setTransform} className="w-full h-full z-10 relative">
+      <ZoomPanCanvas onTransformChange={setTransform} className="w-full h-full z-10 relative" onApi={(api) => { zoomApiRef.current = api }}>
         <div
           className="relative"
           style={{ width: VIRTUAL_CANVAS.width, height: VIRTUAL_CANVAS.height }}
@@ -233,15 +355,28 @@ export const NewGridBoard: React.FC = () => {
 
           {shapes.map(shape => {
             const isCircle = shape.kind === 'circle'
-            const baseClasses = 'absolute bg-white shadow-sm flex items-center justify-center font-medium text-gray-700 text-sm select-none'
-            const shapeClass = isCircle ? 'rounded-full border border-gray-400' : 'rounded-md border border-gray-400'
+            const baseClasses = 'absolute shadow-sm flex items-center justify-center font-medium text-gray-700 text-sm select-none'
+            const isSelected = shape.id === selectedId
+            const style: React.CSSProperties = {
+              left: shape.x,
+              top: shape.y,
+              width: shape.w,
+              height: shape.h,
+              cursor: cursorFor(shape.id),
+              zIndex: shape.z,
+              background: shape.fill,
+              border: `${shape.strokeWidth ?? 2}px solid ${shape.stroke ?? '#555'}`,
+              borderRadius: isCircle ? '9999px' : 6,
+              boxShadow: isSelected ? '0 0 0 2px #3b82f680, 0 1px 2px rgba(0,0,0,0.15)' : '0 1px 2px rgba(0,0,0,0.1)',
+              opacity: shape.opacity ?? 1
+            }
             return (
               <div
                 key={shape.id}
                 ref={setShapeRef(shape.id)}
                 aria-label={`shape-${shape.kind}`}
-                className={`${baseClasses} ${shapeClass}`}
-                style={{ left: shape.x, top: shape.y, width: shape.w, height: shape.h, cursor: cursorFor(shape.id), zIndex: shape.z }}
+                className={baseClasses}
+                style={style}
                 onPointerMove={(e) => handleShapePointerMove(e, shape.id)}
                 onPointerLeave={handleShapePointerLeave}
                 onPointerDown={(e) => handleShapePointerDown(e, shape.id)}
