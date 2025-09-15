@@ -16,6 +16,6 @@ export interface Shape {
 
 // Default creation sizes per shape kind
 export const DEFAULT_SIZES: Record<ShapeKind, { w: number; h: number }> = {
-  rect: { w: 240, h: 160 },
-  circle: { w: 160, h: 160 }
+  rect: { w: 80, h: 80 },
+  circle: { w: 80, h: 80 }
 }
