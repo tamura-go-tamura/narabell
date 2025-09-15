@@ -219,6 +219,14 @@ export const NewGridBoard: React.FC = () => {
     setPanelPos({ x, y })
   }, [selectedId])
 
+  // Deselect when clicking empty background
+  const handleBackgroundPointerDown = useCallback((e: React.PointerEvent) => {
+    if (resizeRef.current || moveRef.current) return
+    // ignore non-left button
+    if (e.button !== 0) return
+    setSelectedId(null)
+  }, [])
+
   useEffect(() => { updatePanelPos() }, [updatePanelPos, transform, shapes])
   useEffect(() => {
     const onResize = () => updatePanelPos()
@@ -335,6 +343,7 @@ export const NewGridBoard: React.FC = () => {
           onPointerMove={handleWrapperPointerMove}
           onPointerUp={endInteractions}
             onPointerLeave={endInteractions}
+          onPointerDown={handleBackgroundPointerDown}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
