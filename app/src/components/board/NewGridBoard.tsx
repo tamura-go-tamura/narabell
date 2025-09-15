@@ -22,6 +22,10 @@ export const NewGridBoard: React.FC = () => {
   const [transform, setTransform] = useState<TransformState>({ x: 0, y: 0, scale: 1 })
   const [shapes, setShapes] = useState<Shape[]>(initialShapes)
   const [hover, setHover] = useState<{ id: string | null; dir: HandleDir | null }>({ id: null, dir: null })
+  // ドラッグ中プレビュー(中心基準で保持)
+  const [dragPreview, setDragPreview] = useState<null | { kind: ShapeKind; cx: number; cy: number }>(null)
+  // 追加: ツールパレットから現在ドラッグ中の図形種別（DataTransfer 取得失敗ブラウザ対策）
+  const [dragCreatingKind, setDragCreatingKind] = useState<ShapeKind | null>(null)
   const resizeRef = useRef<ResizeSession | null>(null)
   const moveRef = useRef<MoveSession | null>(null)
   const shapeRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -189,18 +193,45 @@ export const NewGridBoard: React.FC = () => {
 
   // ドロップ受け入れ
   const handleDrop = useCallback((e: React.DragEvent) => {
-    const kind = e.dataTransfer.getData('application/x-shape-kind') as ShapeKind | ''
+    const kindDt = e.dataTransfer.getData('application/x-shape-kind') as ShapeKind | ''
+    const kind = (kindDt === 'rect' || kindDt === 'circle') ? kindDt : dragCreatingKind
     if (!kind) return
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
     const cx = (e.clientX - rect.left - transform.x) / transform.scale
     const cy = (e.clientY - rect.top - transform.y) / transform.scale
     addShape(kind, { x: cx, y: cy })
-  }, [addShape, transform])
+    setDragPreview(null)
+    setDragCreatingKind(null)
+  }, [addShape, transform, dragCreatingKind])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    // パレット図形のみ受け入れる
+    const kindDt = e.dataTransfer.getData('application/x-shape-kind') as ShapeKind | ''
+    const kind = (kindDt === 'rect' || kindDt === 'circle') ? kindDt : dragCreatingKind
+    if (!kind) return
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy'
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+    const cx = (e.clientX - rect.left - transform.x) / transform.scale
+    const cy = (e.clientY - rect.top - transform.y) / transform.scale
+    setDragPreview(prev => (prev && prev.kind === kind && Math.abs(prev.cx - cx) < 0.01 && Math.abs(prev.cy - cy) < 0.01) ? prev : { kind, cx, cy })
+  }, [transform, dragCreatingKind])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // ラッパー領域外に出た時のみクリア（子要素へのバブルで消えないよう relatedTarget を見る）
+    if (!(e.currentTarget as Node).contains(e.relatedTarget as Node)) {
+      setDragPreview(null)
+    }
+  }, [])
 
   return (
     <div className="relative w-full h-full bg-white select-none overflow-hidden touch-none">
       <InfiniteGrid cellSize={CELL_SIZE} viewportX={transform.x} viewportY={transform.y} viewportScale={transform.scale} className="z-0" />
-      <ShapeToolPalette onCreateShape={(k) => addShape(k)} className="absolute left-4 top-1/2 -translate-y-1/2 z-50" />
+      <ShapeToolPalette
+        onCreateShape={(k) => addShape(k)}
+        onDragShapeStart={(k) => setDragCreatingKind(k)}
+        onDragShapeEnd={() => { setDragCreatingKind(null); setDragPreview(null) }}
+        className="absolute left-4 top-1/2 -translate-y-1/2 z-50"
+      />
       <ZoomPanCanvas onTransformChange={setTransform} className="w-full h-full z-10 relative">
         <div
           className="relative"
@@ -208,9 +239,32 @@ export const NewGridBoard: React.FC = () => {
           onPointerMove={handleWrapperPointerMove}
           onPointerUp={endInteractions}
           onPointerLeave={endInteractions}
-          onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-shape-kind')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' } }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
+          {dragPreview && (
+            (() => {
+              // 図形ごとのプレビューサイズ（円は常に正円）
+              const baseRect = { w: 240, h: 160 }
+              const baseCircle = 160
+              const isCircle = dragPreview.kind === 'circle'
+              const w = isCircle ? baseCircle : baseRect.w
+              const h = isCircle ? baseCircle : baseRect.h
+              const left = quantizePos(dragPreview.cx - w / 2)
+              const top = quantizePos(dragPreview.cy - h / 2)
+              const style: React.CSSProperties = {
+                left,
+                top,
+                width: w,
+                height: h,
+                zIndex: 9999,
+                borderRadius: isCircle ? '9999px' : 6,
+                aspectRatio: isCircle ? '1 / 1' : undefined,
+              }
+              return <div aria-hidden className="pointer-events-none absolute border-2 border-blue-500 border-dashed bg-blue-500/10" style={style} />
+            })()
+          )}
           {/* 内側のグリッドは削除（外側オーバーレイで無限表示） */}
           {shapes.map(shape => {
             const baseClasses = 'absolute bg-white shadow-sm flex items-center justify-center font-medium text-gray-700 text-sm select-none'
