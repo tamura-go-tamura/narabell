@@ -33,6 +33,9 @@ export const NewGridBoard: React.FC = () => {
   const resizeRef = useRef<ResizeSession | null>(null)
   const moveRef = useRef<MoveSession | null>(null)
   const shapeRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const zoomApiRef = useRef<{ zoomIn: () => void; zoomOut: () => void; reset: () => void } | null>(null)
+  // ビューポート（非スケール領域）参照: ズーム後の D&D 座標補正用
+  const viewportRef = useRef<HTMLDivElement | null>(null)
 
   const setShapeRef = (id: string) => (el: HTMLDivElement | null) => { shapeRefs.current[id] = el }
   const findShape = (id: string) => shapes.find(s => s.id === id)!
@@ -176,9 +179,11 @@ export const NewGridBoard: React.FC = () => {
   const handleDrop = useCallback((e: React.DragEvent) => {
     const kind = resolveKind(e.dataTransfer, dragCreatingKind)
     if (!kind) return
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-    const cx = (e.clientX - rect.left - transform.x) / transform.scale
-    const cy = (e.clientY - rect.top - transform.y) / transform.scale
+    const vpRect = viewportRef.current?.getBoundingClientRect()
+    if (!vpRect) return
+    // スクリーン -> ワールド
+    const cx = (e.clientX - vpRect.left - transform.x) / transform.scale
+    const cy = (e.clientY - vpRect.top - transform.y) / transform.scale
     addShape(kind, { x: cx, y: cy })
     setDragPreview(null); setDragCreatingKind(null)
   }, [addShape, transform, dragCreatingKind])
@@ -187,9 +192,10 @@ export const NewGridBoard: React.FC = () => {
     const kind = resolveKind(e.dataTransfer, dragCreatingKind)
     if (!kind) return
     e.preventDefault(); e.dataTransfer.dropEffect = 'copy'
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-    const cx = (e.clientX - rect.left - transform.x) / transform.scale
-    const cy = (e.clientY - rect.top - transform.y) / transform.scale
+    const vpRect = viewportRef.current?.getBoundingClientRect()
+    if (!vpRect) return
+    const cx = (e.clientX - vpRect.left - transform.x) / transform.scale
+    const cy = (e.clientY - vpRect.top - transform.y) / transform.scale
     setDragPreview(prev => (prev && prev.kind === kind && Math.abs(prev.cx - cx) < 0.01 && Math.abs(prev.cy - cy) < 0.01) ? prev : { kind, cx, cy })
   }, [transform, dragCreatingKind])
 
@@ -198,7 +204,14 @@ export const NewGridBoard: React.FC = () => {
   }, [])
 
   return (
-    <div className="relative w-full h-full bg-white select-none overflow-hidden touch-none">
+    <div ref={viewportRef} className="relative w-full h-full bg-white select-none overflow-hidden touch-none">
+      {/* ズームコントロール（最小差分） */}
+      <div className="absolute right-4 bottom-4 z-50 flex flex-col gap-2 bg-white/70 backdrop-blur rounded-md shadow p-2 text-xs">
+        <button onClick={() => zoomApiRef.current?.zoomIn()} className="px-2 py-1 rounded bg-white hover:bg-gray-100 border">＋</button>
+        <button onClick={() => zoomApiRef.current?.zoomOut()} className="px-2 py-1 rounded bg-white hover:bg-gray-100 border">－</button>
+        <button onClick={() => zoomApiRef.current?.reset()} className="px-2 py-1 rounded bg-white hover:bg-gray-100 border">Reset</button>
+        <div className="text-center font-medium select-none">{Math.round(transform.scale * 100)}%</div>
+      </div>
       <InfiniteGrid cellSize={CELL_SIZE} viewportX={transform.x} viewportY={transform.y} viewportScale={transform.scale} className="z-0" />
       <ShapeToolPalette
         onCreateShape={(k) => addShape(k)}
@@ -206,13 +219,13 @@ export const NewGridBoard: React.FC = () => {
         onDragShapeEnd={() => { setDragCreatingKind(null); setDragPreview(null) }}
         className="absolute left-4 top-1/2 -translate-y-1/2 z-50"
       />
-      <ZoomPanCanvas onTransformChange={setTransform} className="w-full h-full z-10 relative">
+      <ZoomPanCanvas onTransformChange={setTransform} className="w-full h-full z-10 relative" onApi={(api) => { zoomApiRef.current = api }}>
         <div
           className="relative"
           style={{ width: VIRTUAL_CANVAS.width, height: VIRTUAL_CANVAS.height }}
           onPointerMove={handleWrapperPointerMove}
           onPointerUp={endInteractions}
-            onPointerLeave={endInteractions}
+          onPointerLeave={endInteractions}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useRef, useEffect } from 'react'
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
 
 export interface TransformState {
@@ -13,12 +13,15 @@ interface ZoomPanCanvasProps {
   children: React.ReactNode
   onTransformChange?: (state: TransformState) => void
   className?: string
+  // 親へ最小限のズーム API を渡す（最小差分実装）
+  onApi?: (api: { zoomIn: () => void; zoomOut: () => void; reset: () => void }) => void
 }
 
 export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
   children,
   onTransformChange,
-  className = ''
+  className = '',
+  onApi
 }) => {
   const transformRef = useRef<ReactZoomPanPinchRef>(null)
   
@@ -29,9 +32,18 @@ export const ZoomPanCanvas: React.FC<ZoomPanCanvasProps> = ({
       y: state.positionY,
       scale: state.scale
     }
-    
     onTransformChange?.(transformState)
   }, [onTransformChange])
+
+  // 最小 API expose
+  useEffect(() => {
+    if (!onApi || !transformRef.current) return
+    onApi({
+      zoomIn: () => transformRef.current?.zoomIn?.(),
+      zoomOut: () => transformRef.current?.zoomOut?.(),
+      reset: () => transformRef.current?.resetTransform?.()
+    })
+  }, [onApi])
 
   return (
     <div className={`relative w-full h-full ${className}`}>
